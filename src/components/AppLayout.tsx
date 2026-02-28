@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, DollarSign, Receipt, CreditCard, Building2,
-  Package, Layers, ShoppingBag, CalendarDays, LogOut, Menu, X, Cake
+  Package, Layers, ShoppingBag, CalendarDays, LogOut, Menu, X
 } from "lucide-react";
 
 const navItems = [
@@ -38,8 +38,8 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex items-center gap-3 p-4 border-b border-sidebar-border">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-            <Cake className="h-5 w-5 text-primary" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-xl">
+            🧁
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-sidebar-foreground truncate">Gestão Confeitaria</p>
