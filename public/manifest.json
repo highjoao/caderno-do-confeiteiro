@@ -1,0 +1,24 @@
+{
+  "name": "Caderno do Confeiteiro",
+  "short_name": "Confeiteiro",
+  "description": "Gestão completa para confeiteiros",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FDE1D3",
+  "theme_color": "#FDE1D3",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
