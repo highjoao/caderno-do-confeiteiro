@@ -1,4 +1,4 @@
-const CACHE_NAME = 'confeiteiro-v1';
+const CACHE_NAME = 'confeiteiro-v2';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/icon-192.svg', '/icon-512.svg'];
 
 self.addEventListener('install', (event) => {
@@ -21,20 +21,39 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
-  // Network-first for API calls
-  if (request.url.includes('/rest/') || request.url.includes('/auth/') || request.url.includes('/functions/')) {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(request))
-    );
+  const url = new URL(request.url);
+
+  // Only handle same-origin requests
+  if (url.origin !== self.location.origin) return;
+
+  // Never cache dev/runtime module requests to avoid stale React/Vite chunks
+  if (
+    url.pathname.startsWith('/node_modules/.vite/') ||
+    url.pathname.startsWith('/@vite/') ||
+    url.pathname.startsWith('/@react-refresh') ||
+    url.pathname.startsWith('/src/')
+  ) {
     return;
   }
 
-  // Cache-first for static assets
+  // Network-first for backend/API calls
+  if (url.pathname.includes('/rest/') || url.pathname.includes('/auth/') || url.pathname.includes('/functions/')) {
+    event.respondWith(fetch(request).catch(() => caches.match(request)));
+    return;
+  }
+
+  // Cache-first for static assets and app shell
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      const clone = response.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-      return response;
-    }))
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+
+      return fetch(request).then((response) => {
+        if (!response || !response.ok || response.type !== 'basic') return response;
+
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        return response;
+      });
+    })
   );
 });
