@@ -1,31 +1,36 @@
 
 
-# Configurar PWA - Caderno do Confeiteiro
+# Plano de Correções
 
-## O que será feito
+## Problema 1: Substituir ícones de editar/excluir por menu de 3 pontinhos + Detalhes ao clicar
 
-Transformar o app em um Progressive Web App (PWA) para que possa ser instalado como aplicativo no celular e desktop, com ícone na tela inicial e experiência fullscreen.
+### O que será feito
+- Substituir os botões de lápis (editar) e lixeira (excluir) por um menu dropdown com ícone de 3 pontinhos (`MoreVertical`) em **todas as páginas** que usam esse padrão
+- Ao clicar no item da lista, abrir um Dialog/Sheet com os detalhes completos do registro
+- O menu de 3 pontinhos terá as opções "Editar" e "Excluir" (com confirmação para exclusão)
+- Layout responsivo com melhor enquadramento dos cards para mobile e desktop
 
-## Passos técnicos
+### Páginas afetadas
+1. **Encomendas** - lista de encomendas (+ calendário)
+2. **Produtos** - lista de produtos
+3. **Insumos** - lista de insumos
+4. **Bases** - lista de bases
+5. **Gastos** - extrato de gastos
+6. **Custos Fixos** - lista de custos
+7. **Cartões** - cards de cartões
+8. **Faturamento** - extrato de fechamentos
 
-### 1. Criar `public/manifest.json`
-- Nome: "Caderno do Confeiteiro"
-- Tema rosa pastel (`#FDE1D3`)
-- Display: `standalone`
-- Ícones PWA (192x192 e 512x512) gerados como SVG inline
+### Detalhes técnicos
+- Usar `DropdownMenu` do shadcn/ui com `MoreVertical` do lucide-react
+- Criar Dialog de detalhes para Encomendas (com todos os campos: cliente, telefone, data, hora, produtos, valor, entrada, restante, status, foto, observação)
+- Para as demais páginas, aplicar o mesmo padrão de clique para detalhes
+- Ajustar layout `flex` dos itens para `flex-wrap` e espaçamento adequado no mobile
+- Usar `AlertDialog` para confirmação de exclusão
 
-### 2. Criar `public/sw.js` (Service Worker)
-- Cache básico dos assets estáticos para funcionamento offline
-- Estratégia network-first para API calls
+## Problema 2: Teclado PWA não sobe no mobile
 
-### 3. Atualizar `index.html`
-- Adicionar link para `manifest.json`
-- Adicionar `<meta name="theme-color">`
-- Adicionar meta tags para iOS (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`)
-
-### 4. Registrar Service Worker em `src/main.tsx`
-- Registro condicional do SW na inicialização do app
-
-### 5. Criar ícones PWA
-- Gerar ícones SVG com o emoji 🧁 nas dimensões necessárias em `public/`
+### O que será feito
+- Adicionar meta tag `interactive-widget=resizes-content` no viewport do `index.html`
+- Atualizar a meta viewport para: `width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content`
+- Adicionar CSS para garantir que inputs dentro de Dialogs funcionem corretamente no modo standalone PWA (`env(safe-area-inset-bottom)`)
 
