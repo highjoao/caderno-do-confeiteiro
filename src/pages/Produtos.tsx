@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, toNumber } from "@/lib/format";
+import { formatCurrency, formatDecimal, formatQuantidade, convertAndCalcCost, toNumber } from "@/lib/format";
 import { Plus, X } from "lucide-react";
 import ItemActions from "@/components/ItemActions";
+
+const UNIDADES_RECEITA = ["g", "Kg", "ml", "L", "Unidade"];
 
 const Produtos = () => {
   const { empresaId } = useAuth();
@@ -24,9 +26,9 @@ const Produtos = () => {
   const [detailComponentes, setDetailComponentes] = useState<any[]>([]);
   const [form, setForm] = useState({
     nome: "", tipo_venda: "Unidade",
-    perc_custo_fixo: "0", perc_lucro: "0", perc_taxa_cartao: "0", perc_taxa_delivery: "0",
+    perc_custo_fixo: "", perc_lucro: "", perc_taxa_cartao: "", perc_taxa_delivery: "",
   });
-  const [componentes, setComponentes] = useState<{ tipo_componente: string; componente_id: string; quantidade: string }[]>([]);
+  const [componentes, setComponentes] = useState<{ tipo_componente: string; componente_id: string; quantidade: string; unidade_medida: string }[]>([]);
 
   const fetchData = async () => {
     if (!empresaId) return;
@@ -42,6 +44,15 @@ const Produtos = () => {
 
   useEffect(() => { fetchData(); }, [empresaId]);
 
+  const getDefaultUnit = (tipo: string, id: string): string => {
+    if (tipo === "Base") {
+      const base = bases.find((b) => b.id === id);
+      return base?.rendimento_unidade || "g";
+    }
+    const insumo = insumos.find((i) => i.id === id);
+    return insumo?.unidade || "g";
+  };
+
   const calcCustoTotal = () => {
     return componentes.reduce((sum, comp) => {
       const qtd = toNumber(comp.quantidade);
@@ -50,7 +61,14 @@ const Produtos = () => {
         return sum + (base ? toNumber(base.custo_por_rendimento || base.custo_total) * qtd : 0);
       } else {
         const insumo = insumos.find((i) => i.id === comp.componente_id);
-        return sum + (insumo ? toNumber(insumo.custo_por_unidade) * qtd : 0);
+        if (!insumo) return sum;
+        return sum + convertAndCalcCost(
+          qtd,
+          comp.unidade_medida,
+          toNumber(insumo.custo_por_grama),
+          toNumber(insumo.custo_por_unidade),
+          insumo.unidade
+        );
       }
     }, 0);
   };
@@ -94,7 +112,13 @@ const Produtos = () => {
 
     if (componentes.length > 0) {
       await supabase.from("produto_componentes").insert(
-        componentes.map((c) => ({ produto_id: produtoId, tipo_componente: c.tipo_componente, componente_id: c.componente_id, quantidade: toNumber(c.quantidade) }))
+        componentes.map((c) => ({
+          produto_id: produtoId,
+          tipo_componente: c.tipo_componente,
+          componente_id: c.componente_id,
+          quantidade: toNumber(c.quantidade),
+          unidade_medida: c.unidade_medida || null,
+        }))
       );
     }
 
@@ -105,7 +129,7 @@ const Produtos = () => {
   };
 
   const resetForm = () => {
-    setForm({ nome: "", tipo_venda: "Unidade", perc_custo_fixo: "0", perc_lucro: "0", perc_taxa_cartao: "0", perc_taxa_delivery: "0" });
+    setForm({ nome: "", tipo_venda: "Unidade", perc_custo_fixo: "", perc_lucro: "", perc_taxa_cartao: "", perc_taxa_delivery: "" });
     setComponentes([]);
     setEditingId(null);
   };
@@ -117,7 +141,12 @@ const Produtos = () => {
       perc_taxa_cartao: String(toNumber(p.perc_taxa_cartao)), perc_taxa_delivery: String(toNumber(p.perc_taxa_delivery)),
     });
     const { data } = await supabase.from("produto_componentes").select("*").eq("produto_id", p.id);
-    setComponentes((data || []).map((c: any) => ({ tipo_componente: c.tipo_componente, componente_id: c.componente_id, quantidade: String(toNumber(c.quantidade)) })));
+    setComponentes((data || []).map((c: any) => ({
+      tipo_componente: c.tipo_componente,
+      componente_id: c.componente_id,
+      quantidade: String(toNumber(c.quantidade)),
+      unidade_medida: c.unidade_medida || getDefaultUnit(c.tipo_componente, c.componente_id),
+    })));
     setEditingId(p.id);
     setDetailItem(null);
     setDialogOpen(true);
@@ -157,7 +186,7 @@ const Produtos = () => {
         <h2 className="text-xl font-semibold">Produtos (Ficha Técnica)</h2>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Novo Produto</Button></DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto max-w-lg">
+          <DialogContent>
             <DialogHeader><DialogTitle>{editingId ? "Editar" : "Novo"} Produto</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -177,50 +206,69 @@ const Produtos = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label>Componentes</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setComponentes([...componentes, { tipo_componente: "Insumo", componente_id: "", quantidade: "" }])}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setComponentes([...componentes, { tipo_componente: "Insumo", componente_id: "", quantidade: "", unidade_medida: "g" }])}>
                     <Plus className="h-3 w-3 mr-1" />Adicionar
                   </Button>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {componentes.map((comp, idx) => (
-                    <div key={idx} className="flex gap-2 items-end flex-wrap">
-                      <Select value={comp.tipo_componente} onValueChange={(v) => { const n = [...componentes]; n[idx].tipo_componente = v; n[idx].componente_id = ""; setComponentes(n); }}>
-                        <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Base">Base</SelectItem>
-                          <SelectItem value="Insumo">Insumo</SelectItem>
-                          <SelectItem value="Embalagem">Embalagem</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <div className="flex-1 min-w-[120px]">
-                        <Select value={comp.componente_id} onValueChange={(v) => { const n = [...componentes]; n[idx].componente_id = v; setComponentes(n); }}>
-                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                          <SelectContent>{getComponenteOptions(comp.tipo_componente).map((o) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
+                    <div key={idx} className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border/50">
+                      <div className="flex gap-2 items-end">
+                        <Select value={comp.tipo_componente} onValueChange={(v) => { const n = [...componentes]; n[idx].tipo_componente = v; n[idx].componente_id = ""; setComponentes(n); }}>
+                          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Base">Base</SelectItem>
+                            <SelectItem value="Insumo">Insumo</SelectItem>
+                            <SelectItem value="Embalagem">Embalagem</SelectItem>
+                          </SelectContent>
                         </Select>
+                        <div className="flex-1 min-w-0">
+                          <Select value={comp.componente_id} onValueChange={(v) => {
+                            const n = [...componentes];
+                            n[idx].componente_id = v;
+                            n[idx].unidade_medida = getDefaultUnit(n[idx].tipo_componente, v);
+                            setComponentes(n);
+                          }}>
+                            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                            <SelectContent>{getComponenteOptions(comp.tipo_componente).map((o) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => setComponentes(componentes.filter((_, i) => i !== idx))}>
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Input className="w-20" type="number" step="0.0001" placeholder="Qtd" value={comp.quantidade}
-                        onChange={(e) => { const n = [...componentes]; n[idx].quantidade = e.target.value; setComponentes(n); }} />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => setComponentes(componentes.filter((_, i) => i !== idx))}>
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-xs">Quantidade</Label>
+                          <Input type="number" step="0.0001" placeholder="0" value={comp.quantidade}
+                            onChange={(e) => { const n = [...componentes]; n[idx].quantidade = e.target.value; setComponentes(n); }} />
+                        </div>
+                        <div className="w-24 space-y-1">
+                          <Label className="text-xs">Unidade</Label>
+                          <Select value={comp.unidade_medida} onValueChange={(v) => { const n = [...componentes]; n[idx].unidade_medida = v; setComponentes(n); }}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>{UNIDADES_RECEITA.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>% Custo Fixo</Label><Input type="number" step="0.1" value={form.perc_custo_fixo} onChange={(e) => setForm({ ...form, perc_custo_fixo: e.target.value })} /></div>
-                <div className="space-y-2"><Label>% Lucro</Label><Input type="number" step="0.1" value={form.perc_lucro} onChange={(e) => setForm({ ...form, perc_lucro: e.target.value })} /></div>
-                <div className="space-y-2"><Label>% Taxa Cartão</Label><Input type="number" step="0.1" value={form.perc_taxa_cartao} onChange={(e) => setForm({ ...form, perc_taxa_cartao: e.target.value })} /></div>
-                <div className="space-y-2"><Label>% Taxa Delivery</Label><Input type="number" step="0.1" value={form.perc_taxa_delivery} onChange={(e) => setForm({ ...form, perc_taxa_delivery: e.target.value })} /></div>
+                <div className="space-y-2"><Label>% Custo Fixo</Label><Input type="number" step="0.1" placeholder="0" value={form.perc_custo_fixo} onChange={(e) => setForm({ ...form, perc_custo_fixo: e.target.value })} /></div>
+                <div className="space-y-2"><Label>% Lucro</Label><Input type="number" step="0.1" placeholder="0" value={form.perc_lucro} onChange={(e) => setForm({ ...form, perc_lucro: e.target.value })} /></div>
+                <div className="space-y-2"><Label>% Taxa Cartão</Label><Input type="number" step="0.1" placeholder="0" value={form.perc_taxa_cartao} onChange={(e) => setForm({ ...form, perc_taxa_cartao: e.target.value })} /></div>
+                <div className="space-y-2"><Label>% Taxa Delivery</Label><Input type="number" step="0.1" placeholder="0" value={form.perc_taxa_delivery} onChange={(e) => setForm({ ...form, perc_taxa_delivery: e.target.value })} /></div>
               </div>
 
               <div className="p-4 rounded-lg bg-primary/10 space-y-2">
                 <div className="flex justify-between text-sm"><span>Custo Total:</span><span className="font-medium">{formatCurrency(custoTotal)}</span></div>
-                <div className="flex justify-between text-sm"><span>+ Custo Fixo ({form.perc_custo_fixo}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_custo_fixo) / 100)}</span></div>
-                <div className="flex justify-between text-sm"><span>+ Lucro ({form.perc_lucro}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_lucro) / 100)}</span></div>
-                <div className="flex justify-between text-sm"><span>+ Taxa Cartão ({form.perc_taxa_cartao}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_taxa_cartao) / 100)}</span></div>
-                <div className="flex justify-between text-sm"><span>+ Taxa Delivery ({form.perc_taxa_delivery}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_taxa_delivery) / 100)}</span></div>
+                <div className="flex justify-between text-sm"><span>+ Custo Fixo ({formatDecimal(toNumber(form.perc_custo_fixo), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_custo_fixo) / 100)}</span></div>
+                <div className="flex justify-between text-sm"><span>+ Lucro ({formatDecimal(toNumber(form.perc_lucro), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_lucro) / 100)}</span></div>
+                <div className="flex justify-between text-sm"><span>+ Taxa Cartão ({formatDecimal(toNumber(form.perc_taxa_cartao), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_taxa_cartao) / 100)}</span></div>
+                <div className="flex justify-between text-sm"><span>+ Taxa Delivery ({formatDecimal(toNumber(form.perc_taxa_delivery), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_taxa_delivery) / 100)}</span></div>
                 <div className="border-t border-primary/20 pt-2 flex justify-between text-lg font-bold text-primary">
                   <span>Preço Ideal:</span><span>{formatCurrency(precoIdeal)}/{form.tipo_venda === "Quilo" ? "Kg" : "un"}</span>
                 </div>
@@ -256,7 +304,7 @@ const Produtos = () => {
 
       {/* Detail Dialog */}
       <Dialog open={!!detailItem} onOpenChange={(o) => { if (!o) setDetailItem(null); }}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-lg">
+        <DialogContent>
           <DialogHeader><DialogTitle>Detalhes do Produto</DialogTitle></DialogHeader>
           {detailItem && (
             <div className="space-y-4">
@@ -275,22 +323,25 @@ const Produtos = () => {
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Componentes</p>
                   <div className="space-y-1">
-                    {detailComponentes.map((c: any) => (
-                      <div key={c.id} className="flex justify-between p-2 rounded bg-muted/50 text-sm">
-                        <span>{c.tipo_componente}: {getComponenteName(c)}</span>
-                        <span className="text-muted-foreground">x{toNumber(c.quantidade)}</span>
-                      </div>
-                    ))}
+                    {detailComponentes.map((c: any) => {
+                      const unit = c.unidade_medida || getDefaultUnit(c.tipo_componente, c.componente_id);
+                      return (
+                        <div key={c.id} className="flex justify-between p-2 rounded bg-muted/50 text-sm">
+                          <span>{c.tipo_componente}: {getComponenteName(c)}</span>
+                          <span className="text-muted-foreground">{formatQuantidade(toNumber(c.quantidade), unit)} {unit}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
               <div className="p-4 rounded-lg bg-primary/10 space-y-2">
                 <div className="flex justify-between text-sm"><span>Custo Total:</span><span className="font-bold">{formatCurrency(toNumber(detailItem.custo_total))}</span></div>
-                <div className="flex justify-between text-sm"><span>% Custo Fixo:</span><span>{toNumber(detailItem.perc_custo_fixo)}%</span></div>
-                <div className="flex justify-between text-sm"><span>% Lucro:</span><span>{toNumber(detailItem.perc_lucro)}%</span></div>
-                <div className="flex justify-between text-sm"><span>% Taxa Cartão:</span><span>{toNumber(detailItem.perc_taxa_cartao)}%</span></div>
-                <div className="flex justify-between text-sm"><span>% Taxa Delivery:</span><span>{toNumber(detailItem.perc_taxa_delivery)}%</span></div>
+                <div className="flex justify-between text-sm"><span>% Custo Fixo:</span><span>{formatDecimal(toNumber(detailItem.perc_custo_fixo), 1)}%</span></div>
+                <div className="flex justify-between text-sm"><span>% Lucro:</span><span>{formatDecimal(toNumber(detailItem.perc_lucro), 1)}%</span></div>
+                <div className="flex justify-between text-sm"><span>% Taxa Cartão:</span><span>{formatDecimal(toNumber(detailItem.perc_taxa_cartao), 1)}%</span></div>
+                <div className="flex justify-between text-sm"><span>% Taxa Delivery:</span><span>{formatDecimal(toNumber(detailItem.perc_taxa_delivery), 1)}%</span></div>
                 <div className="border-t border-primary/20 pt-2 flex justify-between text-lg font-bold text-primary">
                   <span>Preço Ideal:</span><span>{formatCurrency(toNumber(detailItem.preco_ideal))}/{detailItem.tipo_venda === "Quilo" ? "Kg" : "un"}</span>
                 </div>

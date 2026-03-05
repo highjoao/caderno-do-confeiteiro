@@ -1,0 +1,1 @@
+ALTER TABLE public.produto_componentes ADD COLUMN unidade_medida text;

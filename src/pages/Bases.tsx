@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, toNumber } from "@/lib/format";
+import { formatCurrency, formatQuantidade, toNumber } from "@/lib/format";
 import { Plus, X } from "lucide-react";
 import ItemActions from "@/components/ItemActions";
 
@@ -106,6 +106,7 @@ const Bases = () => {
   };
 
   const getInsumoNome = (id: string) => insumos.find((i) => i.id === id)?.nome || "—";
+  const getInsumoUnidade = (id: string) => insumos.find((i) => i.id === id)?.unidade || "";
 
   return (
     <div className="space-y-6">
@@ -113,7 +114,7 @@ const Bases = () => {
         <h2 className="text-xl font-semibold">Bases</h2>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Base</Button></DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogContent>
             <DialogHeader><DialogTitle>{editingId ? "Editar" : "Nova"} Base</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2"><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required placeholder="Ex: Massa de Bolo" /></div>
@@ -150,7 +151,7 @@ const Bases = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Rendimento (Qtd)</Label><Input type="number" step="0.0001" value={form.rendimento_quantidade} onChange={(e) => setForm({ ...form, rendimento_quantidade: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Rendimento (Qtd)</Label><Input type="number" step="0.0001" placeholder="0" value={form.rendimento_quantidade} onChange={(e) => setForm({ ...form, rendimento_quantidade: e.target.value })} /></div>
                 <div className="space-y-2">
                   <Label>Unidade</Label>
                   <Select value={form.rendimento_unidade} onValueChange={(v) => setForm({ ...form, rendimento_unidade: v })}>
@@ -178,7 +179,7 @@ const Bases = () => {
                     <p className="text-sm font-medium truncate">{b.nome}</p>
                     <p className="text-xs text-muted-foreground">
                       Custo: {formatCurrency(toNumber(b.custo_total))}
-                      {b.rendimento_quantidade && ` · Rend: ${toNumber(b.rendimento_quantidade)} ${b.rendimento_unidade}`}
+                      {b.rendimento_quantidade && ` · Rend: ${formatQuantidade(toNumber(b.rendimento_quantidade), b.rendimento_unidade || "g")} ${b.rendimento_unidade}`}
                       {b.custo_por_rendimento && ` · ${formatCurrency(toNumber(b.custo_por_rendimento))}/${b.rendimento_unidade}`}
                     </p>
                   </div>
@@ -201,7 +202,7 @@ const Bases = () => {
                 <div><p className="text-xs text-muted-foreground">Custo Total</p><p className="text-sm font-medium">{formatCurrency(toNumber(detailItem.custo_total))}</p></div>
                 {detailItem.rendimento_quantidade && (
                   <>
-                    <div><p className="text-xs text-muted-foreground">Rendimento</p><p className="text-sm font-medium">{toNumber(detailItem.rendimento_quantidade)} {detailItem.rendimento_unidade}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Rendimento</p><p className="text-sm font-medium">{formatQuantidade(toNumber(detailItem.rendimento_quantidade), detailItem.rendimento_unidade || "g")} {detailItem.rendimento_unidade}</p></div>
                     <div><p className="text-xs text-muted-foreground">Custo/Rend.</p><p className="text-sm font-medium">{formatCurrency(toNumber(detailItem.custo_por_rendimento))}/{detailItem.rendimento_unidade}</p></div>
                   </>
                 )}
@@ -213,7 +214,7 @@ const Bases = () => {
                     {detailInsumos.map((bi: any) => (
                       <div key={bi.id} className="flex justify-between p-2 rounded bg-muted/50 text-sm">
                         <span>{getInsumoNome(bi.insumo_id)}</span>
-                        <span className="text-muted-foreground">x{toNumber(bi.quantidade_usada)}</span>
+                        <span className="text-muted-foreground">{formatQuantidade(toNumber(bi.quantidade_usada), getInsumoUnidade(bi.insumo_id))} {getInsumoUnidade(bi.insumo_id)}</span>
                       </div>
                     ))}
                   </div>
