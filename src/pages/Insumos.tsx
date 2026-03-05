@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, toNumber } from "@/lib/format";
-import { Plus, Trash2, Edit2 } from "lucide-react";
+import { Plus } from "lucide-react";
+import ItemActions from "@/components/ItemActions";
 
 const TIPOS = ["Embalagem", "Insumo"];
 const UNIDADES = ["g", "Kg", "L", "ml", "Unidade"];
@@ -21,12 +22,12 @@ const Insumos = () => {
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [detailItem, setDetailItem] = useState<any | null>(null);
   const [form, setForm] = useState({ nome: "", tipo: "Insumo", valor_pago: "", quantidade_comprada: "", unidade: "g" });
 
   const fetchData = async () => {
     if (!empresaId) return;
-    let q = supabase.from("insumos").select("*").eq("empresa_id", empresaId).order("nome");
-    const { data } = await q;
+    const { data } = await supabase.from("insumos").select("*").eq("empresa_id", empresaId).order("nome");
     setInsumos(data || []);
   };
 
@@ -50,14 +51,9 @@ const Insumos = () => {
     const { porGrama, porUnidade } = calcCustos(valor, qtd, form.unidade);
 
     const payload = {
-      empresa_id: empresaId,
-      nome: form.nome,
-      tipo: form.tipo,
-      valor_pago: valor,
-      quantidade_comprada: qtd,
-      unidade: form.unidade,
-      custo_por_grama: porGrama,
-      custo_por_unidade: porUnidade,
+      empresa_id: empresaId, nome: form.nome, tipo: form.tipo,
+      valor_pago: valor, quantidade_comprada: qtd, unidade: form.unidade,
+      custo_por_grama: porGrama, custo_por_unidade: porUnidade,
     };
 
     if (editingId) {
@@ -73,10 +69,18 @@ const Insumos = () => {
   };
 
   const resetForm = () => { setForm({ nome: "", tipo: "Insumo", valor_pago: "", quantidade_comprada: "", unidade: "g" }); setEditingId(null); };
-  const handleDelete = async (id: string) => { await supabase.from("insumos").delete().eq("id", id); toast({ title: "Removido" }); fetchData(); };
+
+  const handleDelete = async (id: string) => {
+    await supabase.from("insumos").delete().eq("id", id);
+    toast({ title: "Removido" });
+    setDetailItem(null);
+    fetchData();
+  };
+
   const openEdit = (i: any) => {
     setForm({ nome: i.nome, tipo: i.tipo, valor_pago: String(toNumber(i.valor_pago)), quantidade_comprada: String(toNumber(i.quantidade_comprada)), unidade: i.unidade });
     setEditingId(i.id);
+    setDetailItem(null);
     setDialogOpen(true);
   };
 
@@ -84,7 +88,7 @@ const Insumos = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-xl font-semibold">Insumos</h2>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Novo Insumo</Button></DialogTrigger>
@@ -133,9 +137,9 @@ const Insumos = () => {
           ) : (
             <div className="divide-y divide-border">
               {filtered.map((i) => (
-                <div key={i.id} className="flex items-center justify-between p-4">
-                  <div>
-                    <p className="text-sm font-medium">{i.nome}</p>
+                <div key={i.id} className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setDetailItem(i)}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{i.nome}</p>
                     <p className="text-xs text-muted-foreground">
                       {i.tipo} · {toNumber(i.quantidade_comprada)} {i.unidade} por {formatCurrency(toNumber(i.valor_pago))}
                     </p>
@@ -144,16 +148,40 @@ const Insumos = () => {
                       R$ {toNumber(i.custo_por_unidade).toFixed(4)}/{i.unidade}
                     </p>
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(i)}><Edit2 className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(i.id)}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
+                  <ItemActions onEdit={() => openEdit(i)} onDelete={() => handleDelete(i.id)} deleteLabel="este insumo" />
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Detail Dialog */}
+      <Dialog open={!!detailItem} onOpenChange={(o) => { if (!o) setDetailItem(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Detalhes do Insumo</DialogTitle></DialogHeader>
+          {detailItem && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="text-xs text-muted-foreground">Nome</p><p className="text-sm font-medium">{detailItem.nome}</p></div>
+                <div><p className="text-xs text-muted-foreground">Tipo</p><p className="text-sm font-medium">{detailItem.tipo}</p></div>
+                <div><p className="text-xs text-muted-foreground">Valor Pago</p><p className="text-sm font-medium">{formatCurrency(toNumber(detailItem.valor_pago))}</p></div>
+                <div><p className="text-xs text-muted-foreground">Qtd Comprada</p><p className="text-sm font-medium">{toNumber(detailItem.quantidade_comprada)} {detailItem.unidade}</p></div>
+              </div>
+              <div className="p-3 rounded-lg bg-primary/10 space-y-1">
+                {detailItem.unidade !== "Unidade" && (
+                  <div className="flex justify-between text-sm"><span>Custo por grama:</span><span className="font-medium">R$ {toNumber(detailItem.custo_por_grama).toFixed(4)}</span></div>
+                )}
+                <div className="flex justify-between text-sm"><span>Custo por {detailItem.unidade}:</span><span className="font-medium">R$ {toNumber(detailItem.custo_por_unidade).toFixed(4)}</span></div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => openEdit(detailItem)}>Editar</Button>
+                <Button variant="destructive" className="flex-1" onClick={() => handleDelete(detailItem.id)}>Excluir</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, toNumber } from "@/lib/format";
-import { Plus, Trash2, Edit2, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
+import ItemActions from "@/components/ItemActions";
 
 const UNIDADES_REND = ["Unidade", "g", "Kg", "ml", "L"];
 
@@ -20,6 +21,8 @@ const Bases = () => {
   const [insumos, setInsumos] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [detailItem, setDetailItem] = useState<any | null>(null);
+  const [detailInsumos, setDetailInsumos] = useState<any[]>([]);
   const [form, setForm] = useState({ nome: "", rendimento_quantidade: "", rendimento_unidade: "g" });
   const [insumosBase, setInsumosBase] = useState<{ insumo_id: string; quantidade_usada: string }[]>([]);
 
@@ -50,19 +53,15 @@ const Bases = () => {
     const custoPorRendimento = rendQtd > 0 ? custoTotal / rendQtd : 0;
 
     const payload = {
-      empresa_id: empresaId,
-      nome: form.nome,
-      rendimento_quantidade: rendQtd || null,
-      rendimento_unidade: form.rendimento_unidade,
-      custo_total: custoTotal,
-      custo_por_rendimento: custoPorRendimento,
+      empresa_id: empresaId, nome: form.nome,
+      rendimento_quantidade: rendQtd || null, rendimento_unidade: form.rendimento_unidade,
+      custo_total: custoTotal, custo_por_rendimento: custoPorRendimento,
     };
 
     let baseId: string;
     if (editingId) {
       await supabase.from("bases").update(payload).eq("id", editingId);
       baseId = editingId;
-      // Remove old insumos
       await supabase.from("base_insumos").delete().eq("base_id", editingId);
     } else {
       const { data } = await supabase.from("bases").insert(payload).select().single();
@@ -70,7 +69,6 @@ const Bases = () => {
       baseId = data.id;
     }
 
-    // Insert insumos
     if (insumosBase.length > 0) {
       await supabase.from("base_insumos").insert(
         insumosBase.map((ib) => ({ base_id: baseId, insumo_id: ib.insumo_id, quantidade_usada: toNumber(ib.quantidade_usada) }))
@@ -90,14 +88,28 @@ const Bases = () => {
     const { data } = await supabase.from("base_insumos").select("*").eq("base_id", b.id);
     setInsumosBase((data || []).map((bi: any) => ({ insumo_id: bi.insumo_id, quantidade_usada: String(toNumber(bi.quantidade_usada)) })));
     setEditingId(b.id);
+    setDetailItem(null);
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => { await supabase.from("bases").delete().eq("id", id); toast({ title: "Removida" }); fetchData(); };
+  const handleDelete = async (id: string) => {
+    await supabase.from("bases").delete().eq("id", id);
+    toast({ title: "Removida" });
+    setDetailItem(null);
+    fetchData();
+  };
+
+  const openDetail = async (b: any) => {
+    const { data } = await supabase.from("base_insumos").select("*").eq("base_id", b.id);
+    setDetailInsumos(data || []);
+    setDetailItem(b);
+  };
+
+  const getInsumoNome = (id: string) => insumos.find((i) => i.id === id)?.nome || "—";
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-xl font-semibold">Bases</h2>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Base</Button></DialogTrigger>
@@ -161,25 +173,60 @@ const Bases = () => {
           ) : (
             <div className="divide-y divide-border">
               {bases.map((b) => (
-                <div key={b.id} className="flex items-center justify-between p-4">
-                  <div>
-                    <p className="text-sm font-medium">{b.nome}</p>
+                <div key={b.id} className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => openDetail(b)}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{b.nome}</p>
                     <p className="text-xs text-muted-foreground">
                       Custo: {formatCurrency(toNumber(b.custo_total))}
                       {b.rendimento_quantidade && ` · Rend: ${toNumber(b.rendimento_quantidade)} ${b.rendimento_unidade}`}
                       {b.custo_por_rendimento && ` · ${formatCurrency(toNumber(b.custo_por_rendimento))}/${b.rendimento_unidade}`}
                     </p>
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(b)}><Edit2 className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(b.id)}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
+                  <ItemActions onEdit={() => openEdit(b)} onDelete={() => handleDelete(b.id)} deleteLabel="esta base" />
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Detail Dialog */}
+      <Dialog open={!!detailItem} onOpenChange={(o) => { if (!o) setDetailItem(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Detalhes da Base</DialogTitle></DialogHeader>
+          {detailItem && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="text-xs text-muted-foreground">Nome</p><p className="text-sm font-medium">{detailItem.nome}</p></div>
+                <div><p className="text-xs text-muted-foreground">Custo Total</p><p className="text-sm font-medium">{formatCurrency(toNumber(detailItem.custo_total))}</p></div>
+                {detailItem.rendimento_quantidade && (
+                  <>
+                    <div><p className="text-xs text-muted-foreground">Rendimento</p><p className="text-sm font-medium">{toNumber(detailItem.rendimento_quantidade)} {detailItem.rendimento_unidade}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Custo/Rend.</p><p className="text-sm font-medium">{formatCurrency(toNumber(detailItem.custo_por_rendimento))}/{detailItem.rendimento_unidade}</p></div>
+                  </>
+                )}
+              </div>
+              {detailInsumos.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Insumos</p>
+                  <div className="space-y-1">
+                    {detailInsumos.map((bi: any) => (
+                      <div key={bi.id} className="flex justify-between p-2 rounded bg-muted/50 text-sm">
+                        <span>{getInsumoNome(bi.insumo_id)}</span>
+                        <span className="text-muted-foreground">x{toNumber(bi.quantidade_usada)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => openEdit(detailItem)}>Editar</Button>
+                <Button variant="destructive" className="flex-1" onClick={() => handleDelete(detailItem.id)}>Excluir</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

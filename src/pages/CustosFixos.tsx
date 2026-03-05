@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatPercent, toNumber } from "@/lib/format";
-import { Plus, Trash2, Edit2, Target } from "lucide-react";
+import { Plus, Target } from "lucide-react";
+import ItemActions from "@/components/ItemActions";
 
 const CustosFixos = () => {
   const { empresaId } = useAuth();
@@ -20,6 +21,7 @@ const CustosFixos = () => {
   const [metaInput, setMetaInput] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [detailItem, setDetailItem] = useState<any | null>(null);
   const [form, setForm] = useState({ nome: "", valor: "", dia_vencimento: "", observacao: "" });
   const [faturamentoAtual, setFaturamentoAtual] = useState(0);
 
@@ -27,12 +29,9 @@ const CustosFixos = () => {
     if (!empresaId) return;
     const { data } = await supabase.from("custos_fixos").select("*").eq("empresa_id", empresaId).order("nome");
     setCustos(data || []);
-
     const mesAtual = new Date().toISOString().slice(0, 7) + "-01";
     const { data: metaData } = await supabase.from("metas_faturamento").select("*").eq("empresa_id", empresaId).eq("mes_referencia", mesAtual).single();
     if (metaData) { setMeta(toNumber(metaData.valor_meta)); setMetaId(metaData.id); setMetaInput(String(toNumber(metaData.valor_meta))); }
-
-    // Faturamento do mês
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
     const today = new Date().toISOString().split("T")[0];
     const { data: fechData } = await supabase.from("fechamentos_diarios").select("total").eq("empresa_id", empresaId).gte("data", startOfMonth).lte("data", today);
@@ -49,13 +48,9 @@ const CustosFixos = () => {
     e.preventDefault();
     if (!empresaId) return;
     const payload = {
-      empresa_id: empresaId,
-      nome: form.nome,
-      valor: toNumber(form.valor),
-      dia_vencimento: parseInt(form.dia_vencimento),
-      observacao: form.observacao || null,
+      empresa_id: empresaId, nome: form.nome, valor: toNumber(form.valor),
+      dia_vencimento: parseInt(form.dia_vencimento), observacao: form.observacao || null,
     };
-
     if (editingId) {
       await supabase.from("custos_fixos").update(payload).eq("id", editingId);
       toast({ title: "Custo fixo atualizado!" });
@@ -83,16 +78,24 @@ const CustosFixos = () => {
   };
 
   const resetForm = () => { setForm({ nome: "", valor: "", dia_vencimento: "", observacao: "" }); setEditingId(null); };
-  const handleDelete = async (id: string) => { await supabase.from("custos_fixos").delete().eq("id", id); toast({ title: "Removido" }); fetchData(); };
+
+  const handleDelete = async (id: string) => {
+    await supabase.from("custos_fixos").delete().eq("id", id);
+    toast({ title: "Removido" });
+    setDetailItem(null);
+    fetchData();
+  };
+
   const openEdit = (c: any) => {
     setForm({ nome: c.nome, valor: String(toNumber(c.valor)), dia_vencimento: String(c.dia_vencimento), observacao: c.observacao || "" });
     setEditingId(c.id);
+    setDetailItem(null);
     setDialogOpen(true);
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-xl font-semibold">Custos Fixos</h2>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Novo Custo Fixo</Button></DialogTrigger>
@@ -111,7 +114,6 @@ const CustosFixos = () => {
         </Dialog>
       </div>
 
-      {/* Meta */}
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4 text-primary" />Meta de Faturamento Mensal</CardTitle></CardHeader>
         <CardContent>
@@ -125,7 +127,6 @@ const CustosFixos = () => {
         </CardContent>
       </Card>
 
-      {/* Resumo */}
       {meta > 0 && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-4 space-y-2">
@@ -136,7 +137,6 @@ const CustosFixos = () => {
         </Card>
       )}
 
-      {/* Lista */}
       <Card>
         <CardHeader><CardTitle className="text-base">Custos Cadastrados</CardTitle></CardHeader>
         <CardContent>
@@ -145,15 +145,14 @@ const CustosFixos = () => {
           ) : (
             <div className="space-y-2">
               {custos.map((c) => (
-                <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div>
-                    <p className="text-sm font-medium">{c.nome}</p>
+                <div key={c.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors" onClick={() => setDetailItem(c)}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{c.nome}</p>
                     <p className="text-xs text-muted-foreground">Vence dia {c.dia_vencimento}{c.observacao && ` · ${c.observacao}`}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <p className="text-sm font-bold">{formatCurrency(toNumber(c.valor))}</p>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Edit2 className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)}><Trash2 className="h-4 w-4" /></Button>
+                    <ItemActions onEdit={() => openEdit(c)} onDelete={() => handleDelete(c.id)} deleteLabel="este custo fixo" />
                   </div>
                 </div>
               ))}
@@ -161,6 +160,26 @@ const CustosFixos = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!detailItem} onOpenChange={(o) => { if (!o) setDetailItem(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Detalhes do Custo Fixo</DialogTitle></DialogHeader>
+          {detailItem && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="text-xs text-muted-foreground">Nome</p><p className="text-sm font-medium">{detailItem.nome}</p></div>
+                <div><p className="text-xs text-muted-foreground">Valor</p><p className="text-sm font-bold">{formatCurrency(toNumber(detailItem.valor))}</p></div>
+                <div><p className="text-xs text-muted-foreground">Dia Vencimento</p><p className="text-sm font-medium">{detailItem.dia_vencimento}</p></div>
+                {detailItem.observacao && <div className="col-span-2"><p className="text-xs text-muted-foreground">Observação</p><p className="text-sm">{detailItem.observacao}</p></div>}
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => openEdit(detailItem)}>Editar</Button>
+                <Button variant="destructive" className="flex-1" onClick={() => handleDelete(detailItem.id)}>Excluir</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
