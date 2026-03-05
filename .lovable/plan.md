@@ -1,83 +1,53 @@
 
 
-# Plano de Correções - 5 Itens
+# Plano de Correção - Cálculo de Preço, Rendimento e Recálculo Automático
 
-## 1. PWA Auto-Update (Near Real-Time)
+## Problema 1: Fórmula de Preço Ideal Incorreta
 
-O Service Worker atual usa cache-first, servindo versões antigas indefinidamente no mobile. A solução:
+A fórmula atual usa **markup sobre preço de venda** (`custo / (1 - %total/100)`), o que com 91% de percentuais resulta em `63 / 0.09 = R$ 700`. 
 
-- **Mudar SW para network-first** para assets HTML/JS/CSS (app shell), mantendo cache-first apenas para imagens/fontes
-- Adicionar lógica de **skip waiting + clients.claim** com notificação ao usuário quando nova versão estiver disponível
-- No `main.tsx`, detectar `controllerchange` no SW e recarregar a página automaticamente
-- Bumpar `CACHE_NAME` para `confeiteiro-v3`
-
-## 2. Casas Decimais e Zeros nos Inputs
-
-**Problema dos zeros:** Inputs numéricos inicializados com `"0"` fazem o usuário digitar "023". Solução: inicializar com `""` (string vazia) e usar `placeholder="0"`.
-
-**Casas decimais incorretas:** Criar funções de formatação específicas em `src/lib/format.ts`:
-- `formatDecimal(value, decimals)` - genérica
-- Valores monetários: 2 casas (`R$ 89,00`)
-- Custo por grama: 4 casas (`R$ 0,0050/g`)  
-- Custo por Kg: 2 casas (`R$ 5,00/Kg`)
-- Custo por Unidade: 2 casas (`R$ 0,89/un`)
-- Percentuais: 1 casa (`38,0%`)
-- Quantidades: sem decimais desnecessários (usar `parseFloat` para limpar trailing zeros)
-
-**Arquivos afetados:** `format.ts`, `Insumos.tsx`, `Bases.tsx`, `Produtos.tsx`, `Encomendas.tsx`, `CustosFixos.tsx`, `Gastos.tsx`
-
-Nos formulários de Produtos, trocar `perc_custo_fixo: "0"` → `perc_custo_fixo: ""` etc. Aplicar `placeholder="0"` nos inputs.
-
-## 3. Mobile Dialog Alignment
-
-- Adicionar CSS global para `DialogContent` no mobile: `max-w-[95vw]`, `mx-auto`
-- Garantir `overflow-y-auto` e `max-h-[85vh]` nos dialogs
-- Adicionar `padding-bottom: env(safe-area-inset-bottom)` nos dialogs para PWA standalone
-- Revisar todos os `DialogContent` para incluir classes responsivas consistentes
-
-## 4. Unidades/Medidas com Decimais Corretos
-
-Criar helper `formatQuantidade(valor, unidade)`:
-- `g` → sem decimais desnecessários (ex: `500g`, `1.5g`)
-- `Kg` → até 3 casas (ex: `1.500 Kg`)
-- `L/ml` → até 3 casas
-- `Unidade` → inteiro (ex: `100`)
-
-Aplicar em `Insumos.tsx`, `Bases.tsx`, `Produtos.tsx` na listagem e detalhes.
-
-## 5. Unidade de Medida nos Componentes de Produtos
-
-**Migração DB:** Adicionar coluna `unidade_medida` (text, nullable, default null) na tabela `produto_componentes`.
-
-**UI em Produtos.tsx:**
-- Ao selecionar um componente (Insumo ou Base), auto-preencher a unidade padrão do componente
-- Adicionar dropdown de unidade de medida ao lado do campo de quantidade em cada componente (g, Kg, ml, L, Unidade)
-- No cálculo de custo, converter automaticamente: se insumo armazena custo em `custo_por_grama` e a receita usa `Kg`, multiplicar por 1000
-
-**Lógica de conversão:**
+O correto é **markup sobre custo** (soma aditiva):
 ```text
-Se unidade_receita == unidade_insumo → custo = custo_unitario × qtd
-Se unidade_receita = Kg e insumo = g  → custo = custo_por_grama × qtd × 1000
-Se unidade_receita = g e insumo = Kg  → custo = custo_por_grama × qtd
-Se unidade_receita = L e insumo = ml  → custo = custo_por_ml × qtd × 1000
-etc.
+Preço = Custo × (1 + soma_percentuais / 100)
+Preço = 63 × (1 + 0.91) = 63 × 1.91 = R$ 120,33
 ```
+
+Também precisa dividir pelo rendimento (quantas unidades a receita faz):
+```text
+Preço por unidade = Preço Total / rendimento
+```
+
+**Alteração em `Produtos.tsx`:**
+- Mudar `calcPrecoIdeal`: `custo * (1 + totalPerc / 100) / rendimento`
+- Atualizar o breakdown exibido para mostrar valores corretos
+
+## Problema 2: Campo de Rendimento no Produto
+
+A tabela `produtos` não tem campo de rendimento. Precisa adicionar:
+
+**Migração DB:**
+```sql
+ALTER TABLE produtos ADD COLUMN rendimento_quantidade numeric DEFAULT 1;
+```
+
+**UI:** Adicionar campo "Quantas unidades rende?" no formulário, entre os componentes e os percentuais. Valor padrão = 1.
+
+O preço ideal passa a ser dividido pelo rendimento para mostrar o preço **por unidade**.
+
+## Problema 3: Recálculo Automático ao Alterar Insumos
+
+Quando o preço de um insumo muda, os produtos e bases que o usam ficam desatualizados.
+
+**Solução:** Criar uma **database function + trigger** que, ao atualizar um insumo, recalcula automaticamente:
+1. Todas as **bases** que usam esse insumo (via `base_insumos`)
+2. Todos os **produtos** que usam esse insumo ou essas bases (via `produto_componentes`)
+
+A function percorre as tabelas de junção, recalcula `custo_total`, `custo_por_rendimento` (bases) e `custo_total` + `preco_ideal` (produtos).
 
 ## Resumo de Arquivos
 
-| Arquivo | Alterações |
+| Arquivo | Alteração |
 |---|---|
-| `public/sw.js` | Network-first para app shell, bump versão |
-| `src/main.tsx` | Auto-reload no SW update |
-| `src/lib/format.ts` | Novas funções de formatação |
-| `src/index.css` | Safe-area padding para dialogs PWA |
-| `src/pages/Produtos.tsx` | Unidade nos componentes, decimais, inputs vazios |
-| `src/pages/Insumos.tsx` | Decimais corretos, inputs vazios |
-| `src/pages/Bases.tsx` | Decimais corretos |
-| `src/pages/Gastos.tsx` | Decimais, layout mobile |
-| `src/pages/CustosFixos.tsx` | Decimais, inputs vazios |
-| `src/pages/Encomendas.tsx` | Decimais |
-| `src/pages/Cartoes.tsx` | Layout mobile |
-| `src/pages/Faturamento.tsx` | Decimais |
-| **DB Migration** | `ALTER TABLE produto_componentes ADD COLUMN unidade_medida text` |
+| **DB Migration** | `ADD COLUMN rendimento_quantidade` em produtos + trigger de recálculo |
+| `src/pages/Produtos.tsx` | Corrigir fórmula, adicionar campo rendimento, dividir preço por rendimento |
 
