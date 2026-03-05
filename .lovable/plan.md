@@ -1,29 +1,31 @@
 
 
-# Configuração de E-mails de Autenticação Personalizados
+# Configurar PWA - Caderno do Confeiteiro
 
-## Problema
-O e-mail de confirmação não está chegando porque o projeto está usando o sistema padrão de e-mails. Para garantir a entrega e personalizar o conteúdo, precisamos configurar um domínio de envio personalizado.
+## O que será feito
 
-## Plano
+Transformar o app em um Progressive Web App (PWA) para que possa ser instalado como aplicativo no celular e desktop, com ícone na tela inicial e experiência fullscreen.
 
-### Passo 1: Configurar domínio de e-mail
-Para que os e-mails cheguem corretamente, é necessário configurar um domínio de envio (ex: `notify@seudominio.com`). Sem isso, os e-mails podem cair no spam ou não serem entregues.
+## Passos técnicos
 
-### Passo 2: Criar templates personalizados
-Após o domínio configurado, vou criar os templates com o conteúdo que você definiu:
+### 1. Criar `public/manifest.json`
+- Nome: "Caderno do Confeiteiro"
+- Tema rosa pastel (`#FDE1D3`)
+- Display: `standalone`
+- Ícones PWA (192x192 e 512x512) gerados como SVG inline
 
-- **Assunto:** Confirme seu e-mail - Caderno do Confeiteiro
-- **Corpo:** Texto personalizado com nome da confeitaria, tom acolhedor, emoji 💕, botão rosa pastel "Confirmar meu e-mail"
-- **Assinatura:** "Com carinho, Equipe Caderno do Confeiteiro"
-- **Visual:** Tema rosa pastel consistente com o app
+### 2. Criar `public/sw.js` (Service Worker)
+- Cache básico dos assets estáticos para funcionamento offline
+- Estratégia network-first para API calls
 
-Templates para todos os tipos de e-mail auth (confirmação, recuperação de senha, etc.) serão criados com a mesma identidade visual.
+### 3. Atualizar `index.html`
+- Adicionar link para `manifest.json`
+- Adicionar `<meta name="theme-color">`
+- Adicionar meta tags para iOS (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`)
 
-### Passo 3: Deploy automático
-Os templates serão implantados automaticamente via backend functions.
+### 4. Registrar Service Worker em `src/main.tsx`
+- Registro condicional do SW na inicialização do app
 
----
-
-**Primeiro passo necessário:** Você precisa ter um domínio próprio (ex: cadernodoconfeiteiro.com.br) para configurar o envio de e-mails. Você possui um domínio que podemos usar?
+### 5. Criar ícones PWA
+- Gerar ícones SVG com o emoji 🧁 nas dimensões necessárias em `public/`
 
