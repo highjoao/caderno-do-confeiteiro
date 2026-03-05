@@ -20,7 +20,28 @@ if ("serviceWorker" in navigator) {
       return;
     }
 
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    const registration = await navigator.serviceWorker.register("/sw.js").catch(() => null);
+
+    if (registration) {
+      // Check for updates every 60 seconds
+      setInterval(() => registration.update(), 60 * 1000);
+
+      // When a new SW is waiting, tell it to activate immediately
+      registration.addEventListener("updatefound", () => {
+        const newWorker = registration.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener("statechange", () => {
+          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+            // New version available — reload to apply
+            window.location.reload();
+          }
+        });
+      });
+    }
+
+    // If the controller changes (another tab activated a new SW), reload
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      window.location.reload();
+    });
   });
 }
-

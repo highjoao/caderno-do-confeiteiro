@@ -1,4 +1,4 @@
-const CACHE_NAME = 'confeiteiro-v2';
+const CACHE_NAME = 'confeiteiro-v3';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/icon-192.svg', '/icon-512.svg'];
 
 self.addEventListener('install', (event) => {
@@ -26,7 +26,7 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin requests
   if (url.origin !== self.location.origin) return;
 
-  // Never cache dev/runtime module requests to avoid stale React/Vite chunks
+  // Never cache dev/runtime module requests
   if (
     url.pathname.startsWith('/node_modules/.vite/') ||
     url.pathname.startsWith('/@vite/') ||
@@ -42,7 +42,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for static assets and app shell
+  // Network-first for HTML and JS/CSS (app shell) — ensures PWA always gets latest version
+  const isAppShell = url.pathname === '/' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.startsWith('/assets/');
+
+  if (isAppShell) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Cache-first for static assets (images, fonts, icons)
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;

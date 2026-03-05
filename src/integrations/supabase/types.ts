@@ -616,6 +616,7 @@ export type Database = {
           produto_id: string
           quantidade: number
           tipo_componente: string
+          unidade_medida: string | null
         }
         Insert: {
           componente_id: string
@@ -624,6 +625,7 @@ export type Database = {
           produto_id: string
           quantidade: number
           tipo_componente: string
+          unidade_medida?: string | null
         }
         Update: {
           componente_id?: string
@@ -632,6 +634,7 @@ export type Database = {
           produto_id?: string
           quantidade?: number
           tipo_componente?: string
+          unidade_medida?: string | null
         }
         Relationships: [
           {

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, toNumber } from "@/lib/format";
+import { formatCurrency, formatCostPerUnit, formatQuantidade, toNumber } from "@/lib/format";
 import { Plus } from "lucide-react";
 import ItemActions from "@/components/ItemActions";
 
@@ -113,8 +113,8 @@ const Insumos = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Valor Pago (R$)</Label><Input type="number" step="0.01" value={form.valor_pago} onChange={(e) => setForm({ ...form, valor_pago: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>Qtd Comprada</Label><Input type="number" step="0.0001" value={form.quantidade_comprada} onChange={(e) => setForm({ ...form, quantidade_comprada: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Valor Pago (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor_pago} onChange={(e) => setForm({ ...form, valor_pago: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Qtd Comprada</Label><Input type="number" step="0.0001" placeholder="0" value={form.quantidade_comprada} onChange={(e) => setForm({ ...form, quantidade_comprada: e.target.value })} required /></div>
               </div>
               <Button type="submit" className="w-full">{editingId ? "Atualizar" : "Salvar"}</Button>
             </form>
@@ -141,11 +141,11 @@ const Insumos = () => {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{i.nome}</p>
                     <p className="text-xs text-muted-foreground">
-                      {i.tipo} · {toNumber(i.quantidade_comprada)} {i.unidade} por {formatCurrency(toNumber(i.valor_pago))}
+                      {i.tipo} · {formatQuantidade(toNumber(i.quantidade_comprada), i.unidade)} {i.unidade} por {formatCurrency(toNumber(i.valor_pago))}
                     </p>
                     <p className="text-xs text-primary mt-0.5">
-                      {i.unidade !== "Unidade" && `R$ ${toNumber(i.custo_por_grama).toFixed(4)}/g · `}
-                      R$ {toNumber(i.custo_por_unidade).toFixed(4)}/{i.unidade}
+                      {i.unidade !== "Unidade" && `${formatCostPerUnit(toNumber(i.custo_por_grama), "g")} · `}
+                      {formatCostPerUnit(toNumber(i.custo_por_unidade), i.unidade)}
                     </p>
                   </div>
                   <ItemActions onEdit={() => openEdit(i)} onDelete={() => handleDelete(i.id)} deleteLabel="este insumo" />
@@ -166,13 +166,13 @@ const Insumos = () => {
                 <div><p className="text-xs text-muted-foreground">Nome</p><p className="text-sm font-medium">{detailItem.nome}</p></div>
                 <div><p className="text-xs text-muted-foreground">Tipo</p><p className="text-sm font-medium">{detailItem.tipo}</p></div>
                 <div><p className="text-xs text-muted-foreground">Valor Pago</p><p className="text-sm font-medium">{formatCurrency(toNumber(detailItem.valor_pago))}</p></div>
-                <div><p className="text-xs text-muted-foreground">Qtd Comprada</p><p className="text-sm font-medium">{toNumber(detailItem.quantidade_comprada)} {detailItem.unidade}</p></div>
+                <div><p className="text-xs text-muted-foreground">Qtd Comprada</p><p className="text-sm font-medium">{formatQuantidade(toNumber(detailItem.quantidade_comprada), detailItem.unidade)} {detailItem.unidade}</p></div>
               </div>
               <div className="p-3 rounded-lg bg-primary/10 space-y-1">
                 {detailItem.unidade !== "Unidade" && (
-                  <div className="flex justify-between text-sm"><span>Custo por grama:</span><span className="font-medium">R$ {toNumber(detailItem.custo_por_grama).toFixed(4)}</span></div>
+                  <div className="flex justify-between text-sm"><span>Custo por grama:</span><span className="font-medium">{formatCostPerUnit(toNumber(detailItem.custo_por_grama), "g")}</span></div>
                 )}
-                <div className="flex justify-between text-sm"><span>Custo por {detailItem.unidade}:</span><span className="font-medium">R$ {toNumber(detailItem.custo_por_unidade).toFixed(4)}</span></div>
+                <div className="flex justify-between text-sm"><span>Custo por {detailItem.unidade}:</span><span className="font-medium">{formatCostPerUnit(toNumber(detailItem.custo_por_unidade), detailItem.unidade)}</span></div>
               </div>
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => openEdit(detailItem)}>Editar</Button>

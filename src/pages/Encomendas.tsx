@@ -208,8 +208,8 @@ const Encomendas = () => {
               <div className="space-y-2"><Label>Observação</Label><Textarea value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} /></div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Valor Total (R$)</Label><Input type="number" step="0.01" value={form.valor_total} onChange={(e) => setForm({ ...form, valor_total: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>Valor Entrada (R$)</Label><Input type="number" step="0.01" value={form.valor_entrada} onChange={(e) => setForm({ ...form, valor_entrada: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Valor Total (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor_total} onChange={(e) => setForm({ ...form, valor_total: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Valor Entrada (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor_entrada} onChange={(e) => setForm({ ...form, valor_entrada: e.target.value })} /></div>
               </div>
 
               {toNumber(form.valor_total) > 0 && (
