@@ -658,6 +658,7 @@ export type Database = {
           perc_taxa_cartao: number | null
           perc_taxa_delivery: number | null
           preco_ideal: number | null
+          rendimento_quantidade: number | null
           tipo_venda: string
         }
         Insert: {
@@ -671,6 +672,7 @@ export type Database = {
           perc_taxa_cartao?: number | null
           perc_taxa_delivery?: number | null
           preco_ideal?: number | null
+          rendimento_quantidade?: number | null
           tipo_venda: string
         }
         Update: {
@@ -684,6 +686,7 @@ export type Database = {
           perc_taxa_cartao?: number | null
           perc_taxa_delivery?: number | null
           preco_ideal?: number | null
+          rendimento_quantidade?: number | null
           tipo_venda?: string
         }
         Relationships: [

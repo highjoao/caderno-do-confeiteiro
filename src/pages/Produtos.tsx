@@ -27,6 +27,7 @@ const Produtos = () => {
   const [form, setForm] = useState({
     nome: "", tipo_venda: "Unidade",
     perc_custo_fixo: "", perc_lucro: "", perc_taxa_cartao: "", perc_taxa_delivery: "",
+    rendimento_quantidade: "1",
   });
   const [componentes, setComponentes] = useState<{ tipo_componente: string; componente_id: string; quantidade: string; unidade_medida: string }[]>([]);
 
@@ -76,8 +77,8 @@ const Produtos = () => {
   const calcPrecoIdeal = () => {
     const custo = calcCustoTotal();
     const totalPerc = toNumber(form.perc_custo_fixo) + toNumber(form.perc_lucro) + toNumber(form.perc_taxa_cartao) + toNumber(form.perc_taxa_delivery);
-    if (totalPerc >= 100) return custo * 2;
-    return custo / (1 - totalPerc / 100);
+    const rendimento = Math.max(toNumber(form.rendimento_quantidade), 1);
+    return (custo * (1 + totalPerc / 100)) / rendimento;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,7 +98,8 @@ const Produtos = () => {
       perc_taxa_cartao: toNumber(form.perc_taxa_cartao),
       perc_taxa_delivery: toNumber(form.perc_taxa_delivery),
       preco_ideal: precoIdeal,
-    };
+      rendimento_quantidade: Math.max(toNumber(form.rendimento_quantidade), 1),
+    } as any;
 
     let produtoId: string;
     if (editingId) {
@@ -129,7 +131,7 @@ const Produtos = () => {
   };
 
   const resetForm = () => {
-    setForm({ nome: "", tipo_venda: "Unidade", perc_custo_fixo: "", perc_lucro: "", perc_taxa_cartao: "", perc_taxa_delivery: "" });
+    setForm({ nome: "", tipo_venda: "Unidade", perc_custo_fixo: "", perc_lucro: "", perc_taxa_cartao: "", perc_taxa_delivery: "", rendimento_quantidade: "1" });
     setComponentes([]);
     setEditingId(null);
   };
@@ -139,6 +141,7 @@ const Produtos = () => {
       nome: p.nome, tipo_venda: p.tipo_venda,
       perc_custo_fixo: String(toNumber(p.perc_custo_fixo)), perc_lucro: String(toNumber(p.perc_lucro)),
       perc_taxa_cartao: String(toNumber(p.perc_taxa_cartao)), perc_taxa_delivery: String(toNumber(p.perc_taxa_delivery)),
+      rendimento_quantidade: String(toNumber(p.rendimento_quantidade) || 1),
     });
     const { data } = await supabase.from("produto_componentes").select("*").eq("produto_id", p.id);
     setComponentes((data || []).map((c: any) => ({
@@ -256,6 +259,11 @@ const Produtos = () => {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label>Quantas unidades a receita rende?</Label>
+                <Input type="number" step="1" min="1" placeholder="1" value={form.rendimento_quantidade} onChange={(e) => setForm({ ...form, rendimento_quantidade: e.target.value })} />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>% Custo Fixo</Label><Input type="number" step="0.1" placeholder="0" value={form.perc_custo_fixo} onChange={(e) => setForm({ ...form, perc_custo_fixo: e.target.value })} /></div>
                 <div className="space-y-2"><Label>% Lucro</Label><Input type="number" step="0.1" placeholder="0" value={form.perc_lucro} onChange={(e) => setForm({ ...form, perc_lucro: e.target.value })} /></div>
@@ -264,11 +272,14 @@ const Produtos = () => {
               </div>
 
               <div className="p-4 rounded-lg bg-primary/10 space-y-2">
-                <div className="flex justify-between text-sm"><span>Custo Total:</span><span className="font-medium">{formatCurrency(custoTotal)}</span></div>
+                <div className="flex justify-between text-sm"><span>Custo Total da Receita:</span><span className="font-medium">{formatCurrency(custoTotal)}</span></div>
                 <div className="flex justify-between text-sm"><span>+ Custo Fixo ({formatDecimal(toNumber(form.perc_custo_fixo), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_custo_fixo) / 100)}</span></div>
                 <div className="flex justify-between text-sm"><span>+ Lucro ({formatDecimal(toNumber(form.perc_lucro), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_lucro) / 100)}</span></div>
                 <div className="flex justify-between text-sm"><span>+ Taxa Cartão ({formatDecimal(toNumber(form.perc_taxa_cartao), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_taxa_cartao) / 100)}</span></div>
                 <div className="flex justify-between text-sm"><span>+ Taxa Delivery ({formatDecimal(toNumber(form.perc_taxa_delivery), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_taxa_delivery) / 100)}</span></div>
+                {Math.max(toNumber(form.rendimento_quantidade), 1) > 1 && (
+                  <div className="flex justify-between text-sm text-muted-foreground"><span>÷ Rendimento:</span><span>{Math.max(toNumber(form.rendimento_quantidade), 1)} unidades</span></div>
+                )}
                 <div className="border-t border-primary/20 pt-2 flex justify-between text-lg font-bold text-primary">
                   <span>Preço Ideal:</span><span>{formatCurrency(precoIdeal)}/{form.tipo_venda === "Quilo" ? "Kg" : "un"}</span>
                 </div>
