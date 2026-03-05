@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, toNumber } from "@/lib/format";
-import { Plus, Trash2, Edit2, CreditCard, Check } from "lucide-react";
+import { Plus, CreditCard, Check } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import ItemActions from "@/components/ItemActions";
 
 const Cartoes = () => {
   const { empresaId } = useAuth();
@@ -48,12 +49,9 @@ const Cartoes = () => {
     e.preventDefault();
     if (!empresaId) return;
     const payload = {
-      empresa_id: empresaId,
-      nome: form.nome,
-      dia_fechamento: parseInt(form.dia_fechamento),
-      dia_vencimento: parseInt(form.dia_vencimento),
+      empresa_id: empresaId, nome: form.nome,
+      dia_fechamento: parseInt(form.dia_fechamento), dia_vencimento: parseInt(form.dia_vencimento),
     };
-
     if (editingId) {
       await supabase.from("cartoes").update(payload).eq("id", editingId);
       toast({ title: "Cartão atualizado!" });
@@ -93,28 +91,17 @@ const Cartoes = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-xl font-semibold">Cartões</h2>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" />Novo Cartão</Button>
-          </DialogTrigger>
+          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Novo Cartão</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editingId ? "Editar Cartão" : "Novo Cartão"}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Nome do Cartão</Label>
-                <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required placeholder="Ex: Nubank" />
-              </div>
+              <div className="space-y-2"><Label>Nome do Cartão</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required placeholder="Ex: Nubank" /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Dia de Fechamento</Label>
-                  <Input type="number" min="1" max="31" value={form.dia_fechamento} onChange={(e) => setForm({ ...form, dia_fechamento: e.target.value })} required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Dia de Vencimento</Label>
-                  <Input type="number" min="1" max="31" value={form.dia_vencimento} onChange={(e) => setForm({ ...form, dia_vencimento: e.target.value })} required />
-                </div>
+                <div className="space-y-2"><Label>Dia de Fechamento</Label><Input type="number" min="1" max="31" value={form.dia_fechamento} onChange={(e) => setForm({ ...form, dia_fechamento: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Dia de Vencimento</Label><Input type="number" min="1" max="31" value={form.dia_vencimento} onChange={(e) => setForm({ ...form, dia_vencimento: e.target.value })} required /></div>
               </div>
               <Button type="submit" className="w-full">{editingId ? "Atualizar" : "Salvar"}</Button>
             </form>
@@ -122,20 +109,16 @@ const Cartoes = () => {
         </Dialog>
       </div>
 
-      {/* Cards dos cartões */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {cartoes.map((c) => (
           <Card key={c.id} className={`cursor-pointer transition-all ${selectedCartao === c.id ? "ring-2 ring-primary" : ""}`} onClick={() => setSelectedCartao(c.id)}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  <p className="font-medium">{c.nome}</p>
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <CreditCard className="h-5 w-5 text-primary shrink-0" />
+                  <p className="font-medium truncate">{c.nome}</p>
                 </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openEdit(c); }}><Edit2 className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}><Trash2 className="h-4 w-4" /></Button>
-                </div>
+                <ItemActions onEdit={() => openEdit(c)} onDelete={() => handleDelete(c.id)} deleteLabel="este cartão" />
               </div>
               <p className="text-xs text-muted-foreground mt-1">Fecha dia {c.dia_fechamento} · Vence dia {c.dia_vencimento}</p>
             </CardContent>
@@ -144,7 +127,6 @@ const Cartoes = () => {
         {cartoes.length === 0 && <p className="text-sm text-muted-foreground col-span-3 text-center py-8">Nenhum cartão cadastrado</p>}
       </div>
 
-      {/* Faturas */}
       {selectedCartao && (
         <>
           {chartData.length > 0 && (

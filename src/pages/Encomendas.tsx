@@ -9,10 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate, toNumber } from "@/lib/format";
-import { Plus, Trash2, Edit2, X, Calendar, List } from "lucide-react";
+import { Plus, X, Calendar, List } from "lucide-react";
+import ItemActions from "@/components/ItemActions";
 
 const STATUS_OPTIONS = ["Cancelada", "Em Produção", "Entregue", "Pendente", "Pronta"];
 
@@ -30,6 +30,8 @@ const Encomendas = () => {
   const [produtosEnc, setProdutosEnc] = useState<{ produto_id: string; nome_produto: string; quantidade: string }[]>([]);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [view, setView] = useState<"lista" | "calendario">("lista");
+  const [detailEnc, setDetailEnc] = useState<any | null>(null);
+  const [detailProdutos, setDetailProdutos] = useState<any[]>([]);
 
   const fetchData = async () => {
     if (!empresaId) return;
@@ -108,14 +110,26 @@ const Encomendas = () => {
     const { data } = await supabase.from("encomenda_produtos").select("*").eq("encomenda_id", enc.id);
     setProdutosEnc((data || []).map((p: any) => ({ produto_id: p.produto_id || "", nome_produto: p.nome_produto, quantidade: String(toNumber(p.quantidade)) })));
     setEditingId(enc.id);
+    setDetailEnc(null);
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => { await supabase.from("encomendas").delete().eq("id", id); toast({ title: "Removida" }); fetchData(); };
+  const handleDelete = async (id: string) => {
+    await supabase.from("encomendas").delete().eq("id", id);
+    toast({ title: "Removida" });
+    setDetailEnc(null);
+    fetchData();
+  };
 
   const updateStatus = async (id: string, status: string) => {
     await supabase.from("encomendas").update({ status }).eq("id", id);
     fetchData();
+  };
+
+  const openDetail = async (enc: any) => {
+    const { data } = await supabase.from("encomenda_produtos").select("*").eq("encomenda_id", enc.id);
+    setDetailProdutos(data || []);
+    setDetailEnc(enc);
   };
 
   const statusColor = (s: string) => {
@@ -129,7 +143,6 @@ const Encomendas = () => {
     }
   };
 
-  // Calendar view - group by date
   const grouped = encomendas.reduce((acc, enc) => {
     const d = enc.data_retirada;
     if (!acc[d]) acc[d] = [];
@@ -160,7 +173,6 @@ const Encomendas = () => {
                 <div className="space-y-2"><Label>Hora</Label><Input type="time" value={form.hora_retirada} onChange={(e) => setForm({ ...form, hora_retirada: e.target.value })} /></div>
               </div>
 
-              {/* Produtos */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label>Produtos</Label>
@@ -237,25 +249,20 @@ const Encomendas = () => {
             ) : (
               <div className="divide-y divide-border">
                 {encomendas.map((enc) => (
-                  <div key={enc.id} className="flex items-center justify-between p-4">
-                    <div>
-                      <p className="text-sm font-medium">{enc.cliente_nome}</p>
+                  <div key={enc.id} className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => openDetail(enc)}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{enc.cliente_nome}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(enc.data_retirada)} {enc.hora_retirada?.slice(0, 5) || ""}
-                        {enc.cliente_telefone && ` · ${enc.cliente_telefone}`}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                       <div className="text-right">
                         <p className="text-sm font-bold">{formatCurrency(toNumber(enc.valor_total))}</p>
                         {toNumber(enc.valor_restante) > 0 && <p className="text-xs text-destructive">Resta: {formatCurrency(toNumber(enc.valor_restante))}</p>}
                       </div>
-                      <Select value={enc.status} onValueChange={(v) => updateStatus(enc.id, v)}>
-                        <SelectTrigger className="w-32 h-8"><SelectValue /></SelectTrigger>
-                        <SelectContent>{STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(enc)}><Edit2 className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(enc.id)}><Trash2 className="h-4 w-4" /></Button>
+                      <Badge variant={statusColor(enc.status) as any} className="text-xs">{enc.status}</Badge>
+                      <ItemActions onEdit={() => openEdit(enc)} onDelete={() => handleDelete(enc.id)} deleteLabel="esta encomenda" />
                     </div>
                   </div>
                 ))}
@@ -273,14 +280,15 @@ const Encomendas = () => {
               <CardContent>
                 <div className="space-y-2">
                   {(encs as any[]).map((enc) => (
-                    <div key={enc.id} className="flex items-center justify-between p-2 rounded bg-muted/50">
-                      <div>
-                        <p className="text-sm font-medium">{enc.cliente_nome}</p>
+                    <div key={enc.id} className="flex items-center gap-3 p-2 rounded bg-muted/50 cursor-pointer hover:bg-muted transition-colors" onClick={() => openDetail(enc)}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{enc.cliente_nome}</p>
                         <p className="text-xs text-muted-foreground">{enc.hora_retirada?.slice(0, 5) || "Sem horário"}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <p className="text-sm font-medium">{formatCurrency(toNumber(enc.valor_total))}</p>
                         <Badge variant={statusColor(enc.status) as any}>{enc.status}</Badge>
+                        <ItemActions onEdit={() => openEdit(enc)} onDelete={() => handleDelete(enc.id)} deleteLabel="esta encomenda" />
                       </div>
                     </div>
                   ))}
@@ -291,6 +299,91 @@ const Encomendas = () => {
           {Object.keys(grouped).length === 0 && <p className="text-sm text-muted-foreground text-center py-8">Nenhuma encomenda</p>}
         </div>
       )}
+
+      {/* Detail Dialog */}
+      <Dialog open={!!detailEnc} onOpenChange={(o) => { if (!o) setDetailEnc(null); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-lg">
+          <DialogHeader><DialogTitle>Detalhes da Encomenda</DialogTitle></DialogHeader>
+          {detailEnc && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Cliente</p>
+                  <p className="text-sm font-medium">{detailEnc.cliente_nome}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Telefone</p>
+                  <p className="text-sm font-medium">{detailEnc.cliente_telefone || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Data de Retirada</p>
+                  <p className="text-sm font-medium">{formatDate(detailEnc.data_retirada)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Hora</p>
+                  <p className="text-sm font-medium">{detailEnc.hora_retirada?.slice(0, 5) || "—"}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Status</p>
+                <Select value={detailEnc.status} onValueChange={(v) => { updateStatus(detailEnc.id, v); setDetailEnc({ ...detailEnc, status: v }); }}>
+                  <SelectTrigger className="w-40 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>{STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+
+              {detailProdutos.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Produtos</p>
+                  <div className="space-y-1">
+                    {detailProdutos.map((p: any) => (
+                      <div key={p.id} className="flex justify-between p-2 rounded bg-muted/50 text-sm">
+                        <span>{p.nome_produto}</span>
+                        <span className="text-muted-foreground">x{toNumber(p.quantidade)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Valor Total</p>
+                  <p className="text-sm font-bold">{formatCurrency(toNumber(detailEnc.valor_total))}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Entrada</p>
+                  <p className="text-sm font-medium">{formatCurrency(toNumber(detailEnc.valor_entrada))}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Restante</p>
+                  <p className="text-sm font-medium text-destructive">{formatCurrency(toNumber(detailEnc.valor_restante))}</p>
+                </div>
+              </div>
+
+              {detailEnc.observacao && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Observação</p>
+                  <p className="text-sm">{detailEnc.observacao}</p>
+                </div>
+              )}
+
+              {detailEnc.foto_url && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Foto</p>
+                  <img src={detailEnc.foto_url} alt="Foto da encomenda" className="rounded-lg max-h-48 object-cover w-full" />
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => openEdit(detailEnc)}>Editar</Button>
+                <Button variant="destructive" className="flex-1" onClick={() => handleDelete(detailEnc.id)}>Excluir</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
