@@ -7,12 +7,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDecimal, formatQuantidade, convertAndCalcCost, toNumber } from "@/lib/format";
 import { Plus, X } from "lucide-react";
 import ItemActions from "@/components/ItemActions";
 
 const UNIDADES_RECEITA = ["g", "Kg", "ml", "L", "Unidade"];
+
+interface Toggles {
+  custoFixo: boolean;
+  lucro: boolean;
+  taxaCartao: boolean;
+  taxaDelivery: boolean;
+}
+
+const calcPrecoLoja = (custoBase: number, percCustoFixo: number, percLucro: number, percTaxaCartao: number, toggles: Toggles) => {
+  let preco = custoBase;
+  if (toggles.custoFixo && percCustoFixo > 0) preco = preco / (1 - percCustoFixo / 100);
+  if (toggles.lucro && percLucro > 0) preco = preco / (1 - percLucro / 100);
+  if (toggles.taxaCartao && percTaxaCartao > 0) preco = preco / (1 - percTaxaCartao / 100);
+  return preco;
+};
+
+const calcPrecoDelivery = (precoLoja: number, percTaxaDelivery: number, toggles: Toggles) => {
+  let preco = precoLoja;
+  if (toggles.taxaDelivery && percTaxaDelivery > 0) preco = preco / (1 - percTaxaDelivery / 100);
+  return preco;
+};
 
 const Produtos = () => {
   const { empresaId } = useAuth();
@@ -24,6 +46,7 @@ const Produtos = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<any | null>(null);
   const [detailComponentes, setDetailComponentes] = useState<any[]>([]);
+  const [toggles, setToggles] = useState<Toggles>({ custoFixo: true, lucro: true, taxaCartao: true, taxaDelivery: true });
   const [form, setForm] = useState({
     nome: "", tipo_venda: "Unidade",
     perc_custo_fixo: "", perc_lucro: "", perc_taxa_cartao: "", perc_taxa_delivery: "",
@@ -74,31 +97,31 @@ const Produtos = () => {
     }, 0);
   };
 
-  const calcPrecoIdeal = () => {
-    const custo = calcCustoTotal();
-    const totalPerc = toNumber(form.perc_custo_fixo) + toNumber(form.perc_lucro) + toNumber(form.perc_taxa_cartao) + toNumber(form.perc_taxa_delivery);
-    const rendimento = Math.max(toNumber(form.rendimento_quantidade), 1);
-    return (custo * (1 + totalPerc / 100)) / rendimento;
-  };
+  const custoInsumos = calcCustoTotal();
+  const rendimento = Math.max(toNumber(form.rendimento_quantidade), 1);
+  const custoBase = custoInsumos / rendimento;
+  const percCustoFixo = toNumber(form.perc_custo_fixo);
+  const percLucro = toNumber(form.perc_lucro);
+  const percTaxaCartao = toNumber(form.perc_taxa_cartao);
+  const percTaxaDelivery = toNumber(form.perc_taxa_delivery);
+  const precoLoja = calcPrecoLoja(custoBase, percCustoFixo, percLucro, percTaxaCartao, toggles);
+  const precoDelivery = calcPrecoDelivery(precoLoja, percTaxaDelivery, toggles);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!empresaId) return;
 
-    const custoTotal = calcCustoTotal();
-    const precoIdeal = calcPrecoIdeal();
-
     const payload = {
       empresa_id: empresaId,
       nome: form.nome,
       tipo_venda: form.tipo_venda,
-      custo_total: custoTotal,
-      perc_custo_fixo: toNumber(form.perc_custo_fixo),
-      perc_lucro: toNumber(form.perc_lucro),
-      perc_taxa_cartao: toNumber(form.perc_taxa_cartao),
-      perc_taxa_delivery: toNumber(form.perc_taxa_delivery),
-      preco_ideal: precoIdeal,
-      rendimento_quantidade: Math.max(toNumber(form.rendimento_quantidade), 1),
+      custo_total: custoInsumos,
+      perc_custo_fixo: percCustoFixo,
+      perc_lucro: percLucro,
+      perc_taxa_cartao: percTaxaCartao,
+      perc_taxa_delivery: percTaxaDelivery,
+      preco_ideal: precoDelivery,
+      rendimento_quantidade: rendimento,
     } as any;
 
     let produtoId: string;
@@ -134,6 +157,7 @@ const Produtos = () => {
     setForm({ nome: "", tipo_venda: "Unidade", perc_custo_fixo: "", perc_lucro: "", perc_taxa_cartao: "", perc_taxa_delivery: "", rendimento_quantidade: "1" });
     setComponentes([]);
     setEditingId(null);
+    setToggles({ custoFixo: true, lucro: true, taxaCartao: true, taxaDelivery: true });
   };
 
   const openEdit = async (p: any) => {
@@ -142,6 +166,12 @@ const Produtos = () => {
       perc_custo_fixo: String(toNumber(p.perc_custo_fixo)), perc_lucro: String(toNumber(p.perc_lucro)),
       perc_taxa_cartao: String(toNumber(p.perc_taxa_cartao)), perc_taxa_delivery: String(toNumber(p.perc_taxa_delivery)),
       rendimento_quantidade: String(toNumber(p.rendimento_quantidade) || 1),
+    });
+    setToggles({
+      custoFixo: toNumber(p.perc_custo_fixo) > 0,
+      lucro: toNumber(p.perc_lucro) > 0,
+      taxaCartao: toNumber(p.perc_taxa_cartao) > 0,
+      taxaDelivery: toNumber(p.perc_taxa_delivery) > 0,
     });
     const { data } = await supabase.from("produto_componentes").select("*").eq("produto_id", p.id);
     setComponentes((data || []).map((c: any) => ({
@@ -180,8 +210,21 @@ const Produtos = () => {
     return insumos.filter((i) => tipo === "Embalagem" ? i.tipo === "Embalagem" : i.tipo === "Insumo").map((i) => ({ id: i.id, nome: i.nome }));
   };
 
-  const custoTotal = calcCustoTotal();
-  const precoIdeal = calcPrecoIdeal();
+  const unitLabel = form.tipo_venda === "Quilo" ? "Kg" : "un";
+
+  // Helper to calc cascade prices for detail view
+  const calcDetailPrices = (item: any) => {
+    const rend = Math.max(toNumber(item.rendimento_quantidade), 1);
+    const base = toNumber(item.custo_total) / rend;
+    const pf = toNumber(item.perc_custo_fixo);
+    const pl = toNumber(item.perc_lucro);
+    const pc = toNumber(item.perc_taxa_cartao);
+    const pd = toNumber(item.perc_taxa_delivery);
+    const allOn: Toggles = { custoFixo: pf > 0, lucro: pl > 0, taxaCartao: pc > 0, taxaDelivery: pd > 0 };
+    const loja = calcPrecoLoja(base, pf, pl, pc, allOn);
+    const delivery = calcPrecoDelivery(loja, pd, allOn);
+    return { base, loja, delivery, pf, pl, pc, pd, rend };
+  };
 
   return (
     <div className="space-y-6">
@@ -264,25 +307,95 @@ const Produtos = () => {
                 <Input type="number" step="1" min="1" placeholder="1" value={form.rendimento_quantidade} onChange={(e) => setForm({ ...form, rendimento_quantidade: e.target.value })} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>% Custo Fixo</Label><Input type="number" step="0.1" placeholder="0" value={form.perc_custo_fixo} onChange={(e) => setForm({ ...form, perc_custo_fixo: e.target.value })} /></div>
-                <div className="space-y-2"><Label>% Lucro</Label><Input type="number" step="0.1" placeholder="0" value={form.perc_lucro} onChange={(e) => setForm({ ...form, perc_lucro: e.target.value })} /></div>
-                <div className="space-y-2"><Label>% Taxa Cartão</Label><Input type="number" step="0.1" placeholder="0" value={form.perc_taxa_cartao} onChange={(e) => setForm({ ...form, perc_taxa_cartao: e.target.value })} /></div>
-                <div className="space-y-2"><Label>% Taxa Delivery</Label><Input type="number" step="0.1" placeholder="0" value={form.perc_taxa_delivery} onChange={(e) => setForm({ ...form, perc_taxa_delivery: e.target.value })} /></div>
+              <div className="space-y-3">
+                <Label>Percentuais de Formação de Preço</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={toggles.custoFixo} onCheckedChange={(v) => setToggles({ ...toggles, custoFixo: v })} />
+                      <Label className="text-sm">% Custo Fixo</Label>
+                    </div>
+                    <Input type="number" step="0.1" placeholder="0" value={form.perc_custo_fixo} onChange={(e) => setForm({ ...form, perc_custo_fixo: e.target.value })} disabled={!toggles.custoFixo} />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={toggles.lucro} onCheckedChange={(v) => setToggles({ ...toggles, lucro: v })} />
+                      <Label className="text-sm">% Lucro</Label>
+                    </div>
+                    <Input type="number" step="0.1" placeholder="0" value={form.perc_lucro} onChange={(e) => setForm({ ...form, perc_lucro: e.target.value })} disabled={!toggles.lucro} />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={toggles.taxaCartao} onCheckedChange={(v) => setToggles({ ...toggles, taxaCartao: v })} />
+                      <Label className="text-sm">% Taxa Cartão</Label>
+                    </div>
+                    <Input type="number" step="0.1" placeholder="0" value={form.perc_taxa_cartao} onChange={(e) => setForm({ ...form, perc_taxa_cartao: e.target.value })} disabled={!toggles.taxaCartao} />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={toggles.taxaDelivery} onCheckedChange={(v) => setToggles({ ...toggles, taxaDelivery: v })} />
+                      <Label className="text-sm">% Taxa Delivery</Label>
+                    </div>
+                    <Input type="number" step="0.1" placeholder="0" value={form.perc_taxa_delivery} onChange={(e) => setForm({ ...form, perc_taxa_delivery: e.target.value })} disabled={!toggles.taxaDelivery} />
+                  </div>
+                </div>
               </div>
 
-              <div className="p-4 rounded-lg bg-primary/10 space-y-2">
-                <div className="flex justify-between text-sm"><span>Custo Total da Receita:</span><span className="font-medium">{formatCurrency(custoTotal)}</span></div>
-                <div className="flex justify-between text-sm"><span>+ Custo Fixo ({formatDecimal(toNumber(form.perc_custo_fixo), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_custo_fixo) / 100)}</span></div>
-                <div className="flex justify-between text-sm"><span>+ Lucro ({formatDecimal(toNumber(form.perc_lucro), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_lucro) / 100)}</span></div>
-                <div className="flex justify-between text-sm"><span>+ Taxa Cartão ({formatDecimal(toNumber(form.perc_taxa_cartao), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_taxa_cartao) / 100)}</span></div>
-                <div className="flex justify-between text-sm"><span>+ Taxa Delivery ({formatDecimal(toNumber(form.perc_taxa_delivery), 1)}%):</span><span>{formatCurrency(custoTotal * toNumber(form.perc_taxa_delivery) / 100)}</span></div>
-                {Math.max(toNumber(form.rendimento_quantidade), 1) > 1 && (
-                  <div className="flex justify-between text-sm text-muted-foreground"><span>÷ Rendimento:</span><span>{Math.max(toNumber(form.rendimento_quantidade), 1)} unidades</span></div>
-                )}
-                <div className="border-t border-primary/20 pt-2 flex justify-between text-lg font-bold text-primary">
-                  <span>Preço Ideal:</span><span>{formatCurrency(precoIdeal)}/{form.tipo_venda === "Quilo" ? "Kg" : "un"}</span>
+              {/* Resumo de Preço */}
+              <div className="p-4 rounded-lg bg-primary/10 space-y-3">
+                <div className="flex justify-between text-sm font-medium">
+                  <span>Custo de Insumos:</span>
+                  <span>{formatCurrency(custoInsumos)}</span>
                 </div>
+                {rendimento > 1 && (
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>÷ Rendimento ({rendimento} un):</span>
+                    <span>{formatCurrency(custoBase)}/{unitLabel}</span>
+                  </div>
+                )}
+
+                {/* Formação Preço Loja */}
+                <div className="border-t border-primary/20 pt-2 space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Formação Preço Loja</p>
+                  {toggles.custoFixo && percCustoFixo > 0 && (
+                    <div className="flex justify-between text-sm"><span>Custo fixo: {formatDecimal(percCustoFixo, 1)}%</span></div>
+                  )}
+                  {toggles.lucro && percLucro > 0 && (
+                    <div className="flex justify-between text-sm"><span>Lucro: {formatDecimal(percLucro, 1)}%</span></div>
+                  )}
+                  {toggles.taxaCartao && percTaxaCartao > 0 && (
+                    <div className="flex justify-between text-sm"><span>Taxa cartão: {formatDecimal(percTaxaCartao, 1)}%</span></div>
+                  )}
+                  <div className="flex justify-between text-base font-bold text-primary">
+                    <span>Preço Ideal Loja:</span>
+                    <span>{formatCurrency(precoLoja)}/{unitLabel}</span>
+                  </div>
+                </div>
+
+                {/* Formação Preço Delivery */}
+                <div className="border-t border-primary/20 pt-2 space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Formação Preço Delivery</p>
+                  {toggles.custoFixo && percCustoFixo > 0 && (
+                    <div className="flex justify-between text-sm"><span>Custo fixo: {formatDecimal(percCustoFixo, 1)}%</span></div>
+                  )}
+                  {toggles.lucro && percLucro > 0 && (
+                    <div className="flex justify-between text-sm"><span>Lucro: {formatDecimal(percLucro, 1)}%</span></div>
+                  )}
+                  {toggles.taxaCartao && percTaxaCartao > 0 && (
+                    <div className="flex justify-between text-sm"><span>Taxa cartão: {formatDecimal(percTaxaCartao, 1)}%</span></div>
+                  )}
+                  {toggles.taxaDelivery && percTaxaDelivery > 0 && (
+                    <div className="flex justify-between text-sm"><span>Taxa delivery: {formatDecimal(percTaxaDelivery, 1)}%</span></div>
+                  )}
+                  <div className="flex justify-between text-base font-bold text-primary">
+                    <span>Preço Ideal Delivery:</span>
+                    <span>{formatCurrency(precoDelivery)}/{unitLabel}</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground italic">
+                  O cálculo é feito em cascata, incorporando cada percentual em sequência sobre o valor já ajustado.
+                </p>
               </div>
 
               <Button type="submit" className="w-full">{editingId ? "Atualizar" : "Salvar"}</Button>
@@ -297,17 +410,20 @@ const Produtos = () => {
             <p className="text-sm text-muted-foreground text-center py-8">Nenhum produto cadastrado</p>
           ) : (
             <div className="divide-y divide-border">
-              {produtos.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => openDetail(p)}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{p.nome}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {p.tipo_venda} · Custo: {formatCurrency(toNumber(p.custo_total))} · Preço: {formatCurrency(toNumber(p.preco_ideal))}
-                    </p>
+              {produtos.map((p) => {
+                const d = calcDetailPrices(p);
+                return (
+                  <div key={p.id} className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => openDetail(p)}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{p.nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.tipo_venda} · Custo: {formatCurrency(toNumber(p.custo_total))} · Loja: {formatCurrency(d.loja)} · Delivery: {formatCurrency(d.delivery)}
+                      </p>
+                    </div>
+                    <ItemActions onEdit={() => openEdit(p)} onDelete={() => handleDelete(p.id)} deleteLabel="este produto" />
                   </div>
-                  <ItemActions onEdit={() => openEdit(p)} onDelete={() => handleDelete(p.id)} deleteLabel="este produto" />
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -317,53 +433,86 @@ const Produtos = () => {
       <Dialog open={!!detailItem} onOpenChange={(o) => { if (!o) setDetailItem(null); }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Detalhes do Produto</DialogTitle></DialogHeader>
-          {detailItem && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Nome</p>
-                  <p className="text-sm font-medium">{detailItem.nome}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Tipo de Venda</p>
-                  <p className="text-sm font-medium">{detailItem.tipo_venda}</p>
-                </div>
-              </div>
-
-              {detailComponentes.length > 0 && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Componentes</p>
-                  <div className="space-y-1">
-                    {detailComponentes.map((c: any) => {
-                      const unit = c.unidade_medida || getDefaultUnit(c.tipo_componente, c.componente_id);
-                      return (
-                        <div key={c.id} className="flex justify-between p-2 rounded bg-muted/50 text-sm">
-                          <span>{c.tipo_componente}: {getComponenteName(c)}</span>
-                          <span className="text-muted-foreground">{formatQuantidade(toNumber(c.quantidade), unit)} {unit}</span>
-                        </div>
-                      );
-                    })}
+          {detailItem && (() => {
+            const d = calcDetailPrices(detailItem);
+            const dUnitLabel = detailItem.tipo_venda === "Quilo" ? "Kg" : "un";
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Nome</p>
+                    <p className="text-sm font-medium">{detailItem.nome}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Tipo de Venda</p>
+                    <p className="text-sm font-medium">{detailItem.tipo_venda}</p>
                   </div>
                 </div>
-              )}
 
-              <div className="p-4 rounded-lg bg-primary/10 space-y-2">
-                <div className="flex justify-between text-sm"><span>Custo Total:</span><span className="font-bold">{formatCurrency(toNumber(detailItem.custo_total))}</span></div>
-                <div className="flex justify-between text-sm"><span>% Custo Fixo:</span><span>{formatDecimal(toNumber(detailItem.perc_custo_fixo), 1)}%</span></div>
-                <div className="flex justify-between text-sm"><span>% Lucro:</span><span>{formatDecimal(toNumber(detailItem.perc_lucro), 1)}%</span></div>
-                <div className="flex justify-between text-sm"><span>% Taxa Cartão:</span><span>{formatDecimal(toNumber(detailItem.perc_taxa_cartao), 1)}%</span></div>
-                <div className="flex justify-between text-sm"><span>% Taxa Delivery:</span><span>{formatDecimal(toNumber(detailItem.perc_taxa_delivery), 1)}%</span></div>
-                <div className="border-t border-primary/20 pt-2 flex justify-between text-lg font-bold text-primary">
-                  <span>Preço Ideal:</span><span>{formatCurrency(toNumber(detailItem.preco_ideal))}/{detailItem.tipo_venda === "Quilo" ? "Kg" : "un"}</span>
+                {detailComponentes.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Componentes</p>
+                    <div className="space-y-1">
+                      {detailComponentes.map((c: any) => {
+                        const unit = c.unidade_medida || getDefaultUnit(c.tipo_componente, c.componente_id);
+                        return (
+                          <div key={c.id} className="flex justify-between p-2 rounded bg-muted/50 text-sm">
+                            <span>{c.tipo_componente}: {getComponenteName(c)}</span>
+                            <span className="text-muted-foreground">{formatQuantidade(toNumber(c.quantidade), unit)} {unit}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-4 rounded-lg bg-primary/10 space-y-3">
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>Custo de Insumos:</span>
+                    <span>{formatCurrency(toNumber(detailItem.custo_total))}</span>
+                  </div>
+                  {d.rend > 1 && (
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>÷ Rendimento ({d.rend} un):</span>
+                      <span>{formatCurrency(d.base)}/{dUnitLabel}</span>
+                    </div>
+                  )}
+
+                  <div className="border-t border-primary/20 pt-2 space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Formação Preço Loja</p>
+                    {d.pf > 0 && <div className="flex justify-between text-sm"><span>Custo fixo: {formatDecimal(d.pf, 1)}%</span></div>}
+                    {d.pl > 0 && <div className="flex justify-between text-sm"><span>Lucro: {formatDecimal(d.pl, 1)}%</span></div>}
+                    {d.pc > 0 && <div className="flex justify-between text-sm"><span>Taxa cartão: {formatDecimal(d.pc, 1)}%</span></div>}
+                    <div className="flex justify-between text-base font-bold text-primary">
+                      <span>Preço Ideal Loja:</span>
+                      <span>{formatCurrency(d.loja)}/{dUnitLabel}</span>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-primary/20 pt-2 space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Formação Preço Delivery</p>
+                    {d.pf > 0 && <div className="flex justify-between text-sm"><span>Custo fixo: {formatDecimal(d.pf, 1)}%</span></div>}
+                    {d.pl > 0 && <div className="flex justify-between text-sm"><span>Lucro: {formatDecimal(d.pl, 1)}%</span></div>}
+                    {d.pc > 0 && <div className="flex justify-between text-sm"><span>Taxa cartão: {formatDecimal(d.pc, 1)}%</span></div>}
+                    {d.pd > 0 && <div className="flex justify-between text-sm"><span>Taxa delivery: {formatDecimal(d.pd, 1)}%</span></div>}
+                    <div className="flex justify-between text-base font-bold text-primary">
+                      <span>Preço Ideal Delivery:</span>
+                      <span>{formatCurrency(d.delivery)}/{dUnitLabel}</span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground italic">
+                    O cálculo é feito em cascata, incorporando cada percentual em sequência sobre o valor já ajustado.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" className="flex-1" onClick={() => openEdit(detailItem)}>Editar</Button>
+                  <Button variant="destructive" className="flex-1" onClick={() => handleDelete(detailItem.id)}>Excluir</Button>
                 </div>
               </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => openEdit(detailItem)}>Editar</Button>
-                <Button variant="destructive" className="flex-1" onClick={() => handleDelete(detailItem.id)}>Excluir</Button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
