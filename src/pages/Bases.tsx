@@ -156,7 +156,7 @@ const Bases = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <h2 className="text-xl font-semibold">Receitas</h2>
+        <div />
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Receita</Button></DialogTrigger>
           <DialogContent>
