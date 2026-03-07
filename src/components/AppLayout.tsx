@@ -15,7 +15,7 @@ const navItems = [
   { to: "/cartoes", label: "Cartões", icon: CreditCard },
   { to: "/custos-fixos", label: "Custos Fixos", icon: Building2 },
   { to: "/insumos", label: "Insumos", icon: Package },
-  { to: "/bases", label: "Bases", icon: Layers },
+  { to: "/bases", label: "Receitas", icon: Layers },
   { to: "/produtos", label: "Produtos", icon: ShoppingBag },
   { to: "/encomendas", label: "Encomendas", icon: CalendarDays },
 ];
