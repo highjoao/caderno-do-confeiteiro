@@ -1,53 +1,71 @@
 
 
-# Plano de Correção - Cálculo de Preço, Rendimento e Recálculo Automático
+# Plano: Refatorar Dashboard Financeira
 
-## Problema 1: Fórmula de Preço Ideal Incorreta
+## Resumo das Alterações
 
-A fórmula atual usa **markup sobre preço de venda** (`custo / (1 - %total/100)`), o que com 91% de percentuais resulta em `63 / 0.09 = R$ 700`. 
+Apenas o arquivo `src/pages/Dashboard.tsx` será alterado. Nenhuma mudança de estrutura de banco de dados é necessária — todas as informações já existem nas tabelas `gastos`, `faturas` e `fechamentos_diarios`.
 
-O correto é **markup sobre custo** (soma aditiva):
+## 1. Card "Despesas Pagas" (substituindo "Gastos")
+
+**Query atual:** Soma todos os gastos do período sem distinção.
+
+**Nova lógica:** Filtrar gastos onde `forma_pagamento != 'Cartão'`. Esses são os pagamentos efetivados (Pix, Dinheiro, Boleto, Débito).
+
+Para compras no cartão, só contar como "paga" se a fatura vinculada estiver com `paga = true`.
+
 ```text
-Preço = Custo × (1 + soma_percentuais / 100)
-Preço = 63 × (1 + 0.91) = 63 × 1.91 = R$ 120,33
+despesas_pagas = gastos(forma_pagamento != 'Cartão') 
+               + faturas(paga = true).valor_total  (no período)
 ```
 
-Também precisa dividir pelo rendimento (quantas unidades a receita faz):
+## 2. Novo Card "Faturas em Aberto"
+
+**Query:** Buscar faturas onde `paga = false`, somar `valor_total`.
+
+Exibe o total de compromissos com cartão ainda não quitados. Sem filtro de período — mostra todas as faturas abertas.
+
+## 3. Card "Média Diária" (substituindo "Ticket Médio")
+
+**Fórmula:**
 ```text
-Preço por unidade = Preço Total / rendimento
+media_diaria = faturamento_total / dias_com_lancamento
 ```
 
-**Alteração em `Produtos.tsx`:**
-- Mudar `calcPrecoIdeal`: `custo * (1 + totalPerc / 100) / rendimento`
-- Atualizar o breakdown exibido para mostrar valores corretos
+Onde `dias_com_lancamento = fechamentos.length` (já disponível). Se zero, não exibe.
 
-## Problema 2: Campo de Rendimento no Produto
+## 4. Lucro Estimado — Fórmula Revisada
 
-A tabela `produtos` não tem campo de rendimento. Precisa adicionar:
-
-**Migração DB:**
-```sql
-ALTER TABLE produtos ADD COLUMN rendimento_quantidade numeric DEFAULT 1;
+```text
+lucro = faturamento - despesas_pagas - custos_fixos
 ```
 
-**UI:** Adicionar campo "Quantas unidades rende?" no formulário, entre os componentes e os percentuais. Valor padrão = 1.
+Não inclui faturas em aberto (compromissos futuros). Adicionar tooltip com a fórmula.
 
-O preço ideal passa a ser dividido pelo rendimento para mostrar o preço **por unidade**.
+## 5. Novo Layout dos Cards
 
-## Problema 3: Recálculo Automático ao Alterar Insumos
+Ordem:
+1. Faturamento
+2. Despesas Pagas
+3. Custos Fixos
+4. Faturas em Aberto (novo)
+5. Lucro Estimado
+6. Meta
+7. % Meta Atingida
+8. Média Diária (renomeado)
+9. Encomendas
 
-Quando o preço de um insumo muda, os produtos e bases que o usam ficam desatualizados.
+Ícone do "Faturas em Aberto": `CreditCard` do lucide-react.
+Ícone da "Média Diária": `BarChart3` ou `TrendingUp`.
 
-**Solução:** Criar uma **database function + trigger** que, ao atualizar um insumo, recalcula automaticamente:
-1. Todas as **bases** que usam esse insumo (via `base_insumos`)
-2. Todos os **produtos** que usam esse insumo ou essas bases (via `produto_componentes`)
+## 6. Dados já existentes — retroativo
 
-A function percorre as tabelas de junção, recalcula `custo_total`, `custo_por_rendimento` (bases) e `custo_total` + `preco_ideal` (produtos).
+- Gastos passados já têm `forma_pagamento` preenchido, então a separação funciona retroativamente
+- Faturas existentes já têm campo `paga` (boolean), então "Faturas em Aberto" mostra dados históricos também
 
-## Resumo de Arquivos
+## Arquivo afetado
 
 | Arquivo | Alteração |
 |---|---|
-| **DB Migration** | `ADD COLUMN rendimento_quantidade` em produtos + trigger de recálculo |
-| `src/pages/Produtos.tsx` | Corrigir fórmula, adicionar campo rendimento, dividir preço por rendimento |
+| `src/pages/Dashboard.tsx` | Nova query para separar despesas pagas vs cartão, novo card Faturas em Aberto, renomear Ticket Médio para Média Diária, revisar cálculo do lucro |
 
