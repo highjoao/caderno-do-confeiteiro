@@ -1,51 +1,53 @@
 
 
-# Plano: Refatorar Dashboard Financeira
+# Plano de Correção - Cálculo de Preço, Rendimento e Recálculo Automático
 
-## Alterações em `src/pages/Dashboard.tsx`
+## Problema 1: Fórmula de Preço Ideal Incorreta
 
-### 1. Filtro de Período Personalizado
-Substituir o `Select` atual por um filtro com opções predefinidas (Hoje, 7 dias, Mês Atual) **mais** uma opção "Personalizado" que exibe dois inputs de data (início e fim). Usar `react-day-picker` via componente `Calendar` + `Popover` já existente no projeto.
+A fórmula atual usa **markup sobre preço de venda** (`custo / (1 - %total/100)`), o que com 91% de percentuais resulta em `63 / 0.09 = R$ 700`. 
 
-### 2. Card "Despesas Pagas" (substitui "Gastos")
-**Query:** Buscar gastos onde `forma_pagamento != 'Cartão'` no período selecionado + somar `valor_total` das faturas com `paga = true` cujo `mes_referencia` esteja no período.
-
+O correto é **markup sobre custo** (soma aditiva):
 ```text
-despesas_pagas = gastos(forma_pagamento != 'Cartão', data no período)
-               + faturas(paga = true, mes_referencia no período).valor_total
+Preço = Custo × (1 + soma_percentuais / 100)
+Preço = 63 × (1 + 0.91) = 63 × 1.91 = R$ 120,33
 ```
 
-### 3. Novo Card "Faturas em Aberto"
-**Query:** Buscar faturas onde `paga = false`, somar `valor_total`. Sem filtro de período -- mostra todas as faturas abertas.
+Também precisa dividir pelo rendimento (quantas unidades a receita faz):
+```text
+Preço por unidade = Preço Total / rendimento
+```
 
-### 4. Card "Média Diária" (substitui "Ticket Médio")
-**Fórmula:** `faturamento_total / dias_no_período` (usando diferença entre data início e data fim, mínimo 1).
+**Alteração em `Produtos.tsx`:**
+- Mudar `calcPrecoIdeal`: `custo * (1 + totalPerc / 100) / rendimento`
+- Atualizar o breakdown exibido para mostrar valores corretos
 
-### 5. Lucro Estimado Revisado
-**Fórmula:** `faturamento - despesas_pagas - custos_fixos`. Não inclui faturas em aberto. O card "Custos Fixos" continua somando todos os custos fixos cadastrados (valor mensal).
+## Problema 2: Campo de Rendimento no Produto
 
-### 6. Nova Ordem dos Cards
-1. Faturamento
-2. Despesas Pagas
-3. Faturas em Aberto
-4. Custos Fixos
-5. Lucro Estimado
-6. Meta
-7. % Meta Atingida
-8. Média Diária
-9. Encomendas
+A tabela `produtos` não tem campo de rendimento. Precisa adicionar:
 
-### 7. Ícones atualizados
-- Faturas em Aberto: `CreditCard`
-- Média Diária: `TrendingUp` ou `BarChart3`
+**Migração DB:**
+```sql
+ALTER TABLE produtos ADD COLUMN rendimento_quantidade numeric DEFAULT 1;
+```
 
-## Nenhuma alteração de banco necessária
+**UI:** Adicionar campo "Quantas unidades rende?" no formulário, entre os componentes e os percentuais. Valor padrão = 1.
 
-As tabelas `gastos` (com `forma_pagamento`), `faturas` (com `paga`, `valor_total`, `mes_referencia`) já possuem todos os campos necessários. Os dados existentes já funcionam retroativamente.
+O preço ideal passa a ser dividido pelo rendimento para mostrar o preço **por unidade**.
 
-## Arquivo afetado
+## Problema 3: Recálculo Automático ao Alterar Insumos
+
+Quando o preço de um insumo muda, os produtos e bases que o usam ficam desatualizados.
+
+**Solução:** Criar uma **database function + trigger** que, ao atualizar um insumo, recalcula automaticamente:
+1. Todas as **bases** que usam esse insumo (via `base_insumos`)
+2. Todos os **produtos** que usam esse insumo ou essas bases (via `produto_componentes`)
+
+A function percorre as tabelas de junção, recalcula `custo_total`, `custo_por_rendimento` (bases) e `custo_total` + `preco_ideal` (produtos).
+
+## Resumo de Arquivos
 
 | Arquivo | Alteração |
 |---|---|
-| `src/pages/Dashboard.tsx` | Filtro personalizado, separar despesas/cartão, novo card Faturas em Aberto, Média Diária, revisar lucro |
+| **DB Migration** | `ADD COLUMN rendimento_quantidade` em produtos + trigger de recálculo |
+| `src/pages/Produtos.tsx` | Corrigir fórmula, adicionar campo rendimento, dividir preço por rendimento |
 
