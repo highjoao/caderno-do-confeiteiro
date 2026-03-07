@@ -1,53 +1,54 @@
 
 
-# Plano de Correção - Cálculo de Preço, Rendimento e Recálculo Automático
+# Plano: Melhorar Upload de Imagens (Gastos + Encomendas)
 
-## Problema 1: Fórmula de Preço Ideal Incorreta
+## Análise Atual
 
-A fórmula atual usa **markup sobre preço de venda** (`custo / (1 - %total/100)`), o que com 91% de percentuais resulta em `63 / 0.09 = R$ 700`. 
+Ambas as páginas (Gastos e Encomendas) já fazem upload de uma única foto para os buckets `notas_fiscais` e `encomendas_fotos` respectivamente, salvando a URL no campo `foto_url`. O fluxo funciona mas falta validação, tratamento de erro, compressão e suporte a múltiplas imagens.
 
-O correto é **markup sobre custo** (soma aditiva):
-```text
-Preço = Custo × (1 + soma_percentuais / 100)
-Preço = 63 × (1 + 0.91) = 63 × 1.91 = R$ 120,33
-```
+## Decisão de Design
 
-Também precisa dividir pelo rendimento (quantas unidades a receita faz):
-```text
-Preço por unidade = Preço Total / rendimento
-```
+Não criar tabela `order_attachments` separada. Manter o campo `foto_url` existente (uma imagem por registro), que é suficiente para o caso de uso (foto de nota fiscal / foto de encomenda). Focar em robustez do upload.
 
-**Alteração em `Produtos.tsx`:**
-- Mudar `calcPrecoIdeal`: `custo * (1 + totalPerc / 100) / rendimento`
-- Atualizar o breakdown exibido para mostrar valores corretos
+## Alterações
 
-## Problema 2: Campo de Rendimento no Produto
+### 1. Criar utilitário de upload: `src/lib/image-upload.ts`
 
-A tabela `produtos` não tem campo de rendimento. Precisa adicionar:
+Função reutilizável com:
+- **Validação de tipo**: aceitar apenas `image/jpeg`, `image/png`, `image/webp`
+- **Validação de tamanho**: máximo 5MB
+- **Compressão automática**: usar Canvas API para redimensionar imagens > 1920px de largura e comprimir para JPEG 0.8 quality
+- **Upload para bucket**: recebe bucket name, empresaId, file → retorna publicUrl
+- **Tratamento de erro**: retorna `{ url, error }` com mensagens claras em português
+- **Compatibilidade mobile**: o input `accept="image/*"` já permite câmera no mobile; adicionar `capture="environment"` como opção
 
-**Migração DB:**
-```sql
-ALTER TABLE produtos ADD COLUMN rendimento_quantidade numeric DEFAULT 1;
-```
+### 2. Atualizar `src/pages/Gastos.tsx`
 
-**UI:** Adicionar campo "Quantas unidades rende?" no formulário, entre os componentes e os percentuais. Valor padrão = 1.
+- Importar e usar a função de upload do utilitário
+- Adicionar feedback visual (toast) em caso de erro no upload
+- Adicionar `accept="image/jpeg,image/png,image/webp"` no input
+- Mostrar preview da imagem selecionada antes de enviar
 
-O preço ideal passa a ser dividido pelo rendimento para mostrar o preço **por unidade**.
+### 3. Atualizar `src/pages/Encomendas.tsx`
 
-## Problema 3: Recálculo Automático ao Alterar Insumos
+- Mesmas melhorias do Gastos
+- Adicionar preview da imagem selecionada
+- Garantir que ao abrir detalhes, a `foto_url` existente é exibida (já funciona)
 
-Quando o preço de um insumo muda, os produtos e bases que o usam ficam desatualizados.
+### 4. Compatibilidade Mobile
 
-**Solução:** Criar uma **database function + trigger** que, ao atualizar um insumo, recalcula automaticamente:
-1. Todas as **bases** que usam esse insumo (via `base_insumos`)
-2. Todos os **produtos** que usam esse insumo ou essas bases (via `produto_componentes`)
+- Adicionar atributo `capture="environment"` no input file para abrir câmera diretamente no mobile
+- O `accept="image/*"` já suportado dá opção de galeria ou câmera
 
-A function percorre as tabelas de junção, recalcula `custo_total`, `custo_por_rendimento` (bases) e `custo_total` + `preco_ideal` (produtos).
-
-## Resumo de Arquivos
+## Arquivos afetados
 
 | Arquivo | Alteração |
 |---|---|
-| **DB Migration** | `ADD COLUMN rendimento_quantidade` em produtos + trigger de recálculo |
-| `src/pages/Produtos.tsx` | Corrigir fórmula, adicionar campo rendimento, dividir preço por rendimento |
+| `src/lib/image-upload.ts` | **Novo** - utilitário de compressão, validação e upload |
+| `src/pages/Gastos.tsx` | Usar utilitário, preview, validação |
+| `src/pages/Encomendas.tsx` | Usar utilitário, preview, validação |
+
+## Sem alteração de banco
+
+O campo `foto_url` já existe em ambas as tabelas. Os buckets `notas_fiscais` e `encomendas_fotos` já existem e são públicos.
 
