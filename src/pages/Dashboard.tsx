@@ -275,14 +275,14 @@ const Dashboard = () => {
                   {c.tooltip ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <p className="text-xs text-muted-foreground cursor-help underline decoration-dotted">{c.title}</p>
+                        <p className="text-xs font-semibold text-muted-foreground cursor-help">{c.title}</p>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-[250px]">
                         <p className="text-xs">{c.tooltip}</p>
                       </TooltipContent>
                     </Tooltip>
                   ) : (
-                    <p className="text-xs text-muted-foreground">{c.title}</p>
+                    <p className="text-xs font-semibold text-muted-foreground">{c.title}</p>
                   )}
                   <c.icon className={`h-4 w-4 ${c.color}`} />
                 </div>
