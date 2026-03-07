@@ -156,7 +156,7 @@ const Encomendas = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-xl font-semibold">Encomendas</h2>
+          <div />
           <p className="text-sm text-muted-foreground">{totalMes} encomendas</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
