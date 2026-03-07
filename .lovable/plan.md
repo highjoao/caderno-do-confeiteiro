@@ -1,54 +1,44 @@
 
 
-# Plano: Melhorar Upload de Imagens (Gastos + Encomendas)
+# Plano: Image Viewer Modal + Correção de Layout
 
-## Análise Atual
+## Problema 1 — Image Viewer Modal
 
-Ambas as páginas (Gastos e Encomendas) já fazem upload de uma única foto para os buckets `notas_fiscais` e `encomendas_fotos` respectivamente, salvando a URL no campo `foto_url`. O fluxo funciona mas falta validação, tratamento de erro, compressão e suporte a múltiplas imagens.
+Nas telas de Gastos (linha 253) e Encomendas (linha 395), as imagens são exibidas com `<img>` simples sem `onClick`. Não há modal de visualização ampliada.
 
-## Decisão de Design
+### Solução
 
-Não criar tabela `order_attachments` separada. Manter o campo `foto_url` existente (uma imagem por registro), que é suficiente para o caso de uso (foto de nota fiscal / foto de encomenda). Focar em robustez do upload.
+Adicionar estado `viewerImage` em ambas as páginas. Ao clicar na imagem, abrir um Dialog fullscreen com a imagem em resolução completa.
 
-## Alterações
+**Em `src/pages/Gastos.tsx`:**
+- Adicionar estado: `const [viewerImage, setViewerImage] = useState<string | null>(null)`
+- Na imagem da nota fiscal (linha 253): adicionar `onClick={() => setViewerImage(detailItem.foto_url)}` e `cursor-pointer`
+- Adicionar Dialog de visualização com fundo escuro, imagem `max-h-[90vh] object-contain`, botão fechar, e fechar ao clicar fora
 
-### 1. Criar utilitário de upload: `src/lib/image-upload.ts`
+**Em `src/pages/Encomendas.tsx`:**
+- Mesma lógica: estado `viewerImage`, onClick na imagem (linha 395), Dialog de visualização
 
-Função reutilizável com:
-- **Validação de tipo**: aceitar apenas `image/jpeg`, `image/png`, `image/webp`
-- **Validação de tamanho**: máximo 5MB
-- **Compressão automática**: usar Canvas API para redimensionar imagens > 1920px de largura e comprimir para JPEG 0.8 quality
-- **Upload para bucket**: recebe bucket name, empresaId, file → retorna publicUrl
-- **Tratamento de erro**: retorna `{ url, error }` com mensagens claras em português
-- **Compatibilidade mobile**: o input `accept="image/*"` já permite câmera no mobile; adicionar `capture="environment"` como opção
+### Componente do viewer (inline em cada página):
+```tsx
+<Dialog open={!!viewerImage} onOpenChange={(o) => { if (!o) setViewerImage(null); }}>
+  <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 bg-black/90 border-none">
+    <img src={viewerImage!} alt="Visualização" className="max-h-[90vh] w-full object-contain" />
+  </DialogContent>
+</Dialog>
+```
 
-### 2. Atualizar `src/pages/Gastos.tsx`
+## Problema 2 — Campo "Valor" desalinhado em Encomendas
 
-- Importar e usar a função de upload do utilitário
-- Adicionar feedback visual (toast) em caso de erro no upload
-- Adicionar `accept="image/jpeg,image/png,image/webp"` no input
-- Mostrar preview da imagem selecionada antes de enviar
+Na tela de Encomendas, o formulário de criação/edição tem os campos "Valor Total" e "Valor Entrada" em `grid grid-cols-2 gap-4` (linha 227-229), que está correto e alinhado. O layout do formulário já usa padrão consistente.
 
-### 3. Atualizar `src/pages/Encomendas.tsx`
+Vou verificar visualmente se há algum campo específico desalinhado na renderização e garantir que todos os campos sigam o mesmo padrão de espaçamento.
 
-- Mesmas melhorias do Gastos
-- Adicionar preview da imagem selecionada
-- Garantir que ao abrir detalhes, a `foto_url` existente é exibida (já funciona)
-
-### 4. Compatibilidade Mobile
-
-- Adicionar atributo `capture="environment"` no input file para abrir câmera diretamente no mobile
-- O `accept="image/*"` já suportado dá opção de galeria ou câmera
+O campo "Restante" (linha 232-233) está fora do grid como texto solto — isso pode parecer desalinhado. Vou mantê-lo como informação auxiliar mas garantir espaçamento consistente.
 
 ## Arquivos afetados
 
 | Arquivo | Alteração |
 |---|---|
-| `src/lib/image-upload.ts` | **Novo** - utilitário de compressão, validação e upload |
-| `src/pages/Gastos.tsx` | Usar utilitário, preview, validação |
-| `src/pages/Encomendas.tsx` | Usar utilitário, preview, validação |
-
-## Sem alteração de banco
-
-O campo `foto_url` já existe em ambas as tabelas. Os buckets `notas_fiscais` e `encomendas_fotos` já existem e são públicos.
+| `src/pages/Gastos.tsx` | Adicionar image viewer modal + cursor-pointer na imagem |
+| `src/pages/Encomendas.tsx` | Adicionar image viewer modal + cursor-pointer na imagem + verificar alinhamento de campos |
 
