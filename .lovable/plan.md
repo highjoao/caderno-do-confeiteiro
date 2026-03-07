@@ -1,71 +1,53 @@
 
 
-# Plano: Refatorar Dashboard Financeira
+# Plano de Correção - Cálculo de Preço, Rendimento e Recálculo Automático
 
-## Resumo das Alterações
+## Problema 1: Fórmula de Preço Ideal Incorreta
 
-Apenas o arquivo `src/pages/Dashboard.tsx` será alterado. Nenhuma mudança de estrutura de banco de dados é necessária — todas as informações já existem nas tabelas `gastos`, `faturas` e `fechamentos_diarios`.
+A fórmula atual usa **markup sobre preço de venda** (`custo / (1 - %total/100)`), o que com 91% de percentuais resulta em `63 / 0.09 = R$ 700`. 
 
-## 1. Card "Despesas Pagas" (substituindo "Gastos")
-
-**Query atual:** Soma todos os gastos do período sem distinção.
-
-**Nova lógica:** Filtrar gastos onde `forma_pagamento != 'Cartão'`. Esses são os pagamentos efetivados (Pix, Dinheiro, Boleto, Débito).
-
-Para compras no cartão, só contar como "paga" se a fatura vinculada estiver com `paga = true`.
-
+O correto é **markup sobre custo** (soma aditiva):
 ```text
-despesas_pagas = gastos(forma_pagamento != 'Cartão') 
-               + faturas(paga = true).valor_total  (no período)
+Preço = Custo × (1 + soma_percentuais / 100)
+Preço = 63 × (1 + 0.91) = 63 × 1.91 = R$ 120,33
 ```
 
-## 2. Novo Card "Faturas em Aberto"
-
-**Query:** Buscar faturas onde `paga = false`, somar `valor_total`.
-
-Exibe o total de compromissos com cartão ainda não quitados. Sem filtro de período — mostra todas as faturas abertas.
-
-## 3. Card "Média Diária" (substituindo "Ticket Médio")
-
-**Fórmula:**
+Também precisa dividir pelo rendimento (quantas unidades a receita faz):
 ```text
-media_diaria = faturamento_total / dias_com_lancamento
+Preço por unidade = Preço Total / rendimento
 ```
 
-Onde `dias_com_lancamento = fechamentos.length` (já disponível). Se zero, não exibe.
+**Alteração em `Produtos.tsx`:**
+- Mudar `calcPrecoIdeal`: `custo * (1 + totalPerc / 100) / rendimento`
+- Atualizar o breakdown exibido para mostrar valores corretos
 
-## 4. Lucro Estimado — Fórmula Revisada
+## Problema 2: Campo de Rendimento no Produto
 
-```text
-lucro = faturamento - despesas_pagas - custos_fixos
+A tabela `produtos` não tem campo de rendimento. Precisa adicionar:
+
+**Migração DB:**
+```sql
+ALTER TABLE produtos ADD COLUMN rendimento_quantidade numeric DEFAULT 1;
 ```
 
-Não inclui faturas em aberto (compromissos futuros). Adicionar tooltip com a fórmula.
+**UI:** Adicionar campo "Quantas unidades rende?" no formulário, entre os componentes e os percentuais. Valor padrão = 1.
 
-## 5. Novo Layout dos Cards
+O preço ideal passa a ser dividido pelo rendimento para mostrar o preço **por unidade**.
 
-Ordem:
-1. Faturamento
-2. Despesas Pagas
-3. Custos Fixos
-4. Faturas em Aberto (novo)
-5. Lucro Estimado
-6. Meta
-7. % Meta Atingida
-8. Média Diária (renomeado)
-9. Encomendas
+## Problema 3: Recálculo Automático ao Alterar Insumos
 
-Ícone do "Faturas em Aberto": `CreditCard` do lucide-react.
-Ícone da "Média Diária": `BarChart3` ou `TrendingUp`.
+Quando o preço de um insumo muda, os produtos e bases que o usam ficam desatualizados.
 
-## 6. Dados já existentes — retroativo
+**Solução:** Criar uma **database function + trigger** que, ao atualizar um insumo, recalcula automaticamente:
+1. Todas as **bases** que usam esse insumo (via `base_insumos`)
+2. Todos os **produtos** que usam esse insumo ou essas bases (via `produto_componentes`)
 
-- Gastos passados já têm `forma_pagamento` preenchido, então a separação funciona retroativamente
-- Faturas existentes já têm campo `paga` (boolean), então "Faturas em Aberto" mostra dados históricos também
+A function percorre as tabelas de junção, recalcula `custo_total`, `custo_por_rendimento` (bases) e `custo_total` + `preco_ideal` (produtos).
 
-## Arquivo afetado
+## Resumo de Arquivos
 
 | Arquivo | Alteração |
 |---|---|
-| `src/pages/Dashboard.tsx` | Nova query para separar despesas pagas vs cartão, novo card Faturas em Aberto, renomear Ticket Médio para Média Diária, revisar cálculo do lucro |
+| **DB Migration** | `ADD COLUMN rendimento_quantidade` em produtos + trigger de recálculo |
+| `src/pages/Produtos.tsx` | Corrigir fórmula, adicionar campo rendimento, dividir preço por rendimento |
 
