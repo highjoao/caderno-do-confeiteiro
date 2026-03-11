@@ -351,7 +351,7 @@ const Dashboard = () => {
                     <div>
                       <p className="text-sm font-medium">{enc.cliente_nome}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(enc.data_retirada + "T00:00:00").toLocaleDateString("pt-BR")}
+                        {(() => { const [y,m,d] = (enc.data_retirada as string).split("-"); return `${d}/${m}/${y}`; })()}
                         {enc.hora_retirada && ` às ${enc.hora_retirada.slice(0, 5)}`}
                       </p>
                     </div>
