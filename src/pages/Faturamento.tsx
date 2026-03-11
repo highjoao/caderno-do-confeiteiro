@@ -40,8 +40,8 @@ const Faturamento = () => {
 
     const payload = {
       empresa_id: empresaId, data: form.data,
-      cartao: toNumber(form.cartao), pix: toNumber(form.pix),
-      dinheiro: toNumber(form.dinheiro), delivery: toNumber(form.delivery),
+      cartao: parseCurrency(form.cartao), pix: parseCurrency(form.pix),
+      dinheiro: parseCurrency(form.dinheiro), delivery: parseCurrency(form.delivery),
       total, observacao: form.observacao || null,
     };
 
