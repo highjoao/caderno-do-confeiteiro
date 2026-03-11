@@ -122,7 +122,7 @@ const CustosFixos = () => {
           <div className="flex gap-3 items-end">
             <div className="flex-1 space-y-2">
               <Label>Valor da Meta (R$)</Label>
-              <Input type="number" step="0.01" value={metaInput} onChange={(e) => setMetaInput(e.target.value)} placeholder="0" />
+              <CurrencyInput value={metaInput} onChange={(v) => setMetaInput(v)} placeholder="0" />
             </div>
             <Button onClick={saveMeta}>Salvar Meta</Button>
           </div>
