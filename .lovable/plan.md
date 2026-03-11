@@ -1,78 +1,99 @@
 
 
-# Plano: Mascara de Moeda Brasileira em Campos Financeiros
+# Plano: Refatorar Aba Faturas para Gerenciamento Completo de Cartao
 
-## Resumo
+## Contexto
 
-Criar um componente `CurrencyInput` reutilizavel e funcoes utilitarias (`maskCurrency`, `parseCurrency`) para aplicar mascara de moeda brasileira (1.000,00) em todos os campos monetarios. O input sera `type="text"` com mascara em tempo real.
+Hoje as faturas so existem como resultado automatico de gastos registrados na aba Gastos com forma "Cartao". O usuario nao consegue criar faturas manualmente, adicionar compras diretamente na fatura, nem reconstruir faturas antigas. Isso impede usuarios que ja tinham faturas antes de comecar a usar o app.
 
-## Logica da Mascara
-
-| Digitado | Exibido |
-|---|---|
-| 1 | 1,00 |
-| 10 | 10,00 |
-| 100 | 100,00 |
-| 1000 | 1.000,00 |
-| 01 | 0,01 |
-| 010 | 0,10 |
-
-Regra: digitos que comecam com 0 sao interpretados como centavos (dividir por 100). Demais sao valores inteiros formatados com 2 casas decimais.
+A aba "Cartoes" (`Cartoes.tsx`) ja mostra cartoes + faturas + itens. Vamos transformar essa pagina no gerenciador completo de faturas.
 
 ## Alteracoes
 
-### 1. `src/lib/currency-mask.ts` (novo)
+### 1. Migracao SQL
 
-```typescript
-export function maskCurrency(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("0")) {
-    return (Number(digits) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-  return Number(digits).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+Adicionar coluna `gasto_id` na tabela `itens_fatura` para vincular itens criados via Gastos (ja existe no schema). Adicionar coluna `data_compra` para registrar quando a compra foi feita:
 
-export function parseCurrency(formatted: string): number {
-  return Number(formatted.replace(/\./g, "").replace(",", ".")) || 0;
-}
+```sql
+ALTER TABLE public.itens_fatura ADD COLUMN IF NOT EXISTS data_compra date;
 ```
 
-### 2. `src/components/ui/currency-input.tsx` (novo)
+Criar trigger para sincronizar exclusao: quando um gasto com cartao e deletado, remover os itens_fatura correspondentes e recalcular valor_total da fatura.
 
-Componente wrapper do `Input` que aplica `maskCurrency` no onChange e exibe valor formatado. Props: `value` (string formatada), `onChange` (string formatada), demais props do Input.
+```sql
+CREATE OR REPLACE FUNCTION public.sync_delete_gasto_itens_fatura()
+RETURNS trigger AS $$ ... $$
+-- Deleta itens_fatura onde gasto_id = OLD.id
+-- Recalcula valor_total das faturas afetadas
+```
 
-### 3. Substituicoes nos formularios
+### 2. Refatorar `Cartoes.tsx` — Gerenciador Completo de Faturas
 
-Todos os campos `type="number" step="0.01"` com label contendo "R$" ou "Valor" serao trocados por `<CurrencyInput>`.
+A pagina atual ja tem: lista de cartoes, lista de faturas por cartao, itens expandiveis.
 
-| Arquivo | Campos |
-|---|---|
-| `Gastos.tsx` | valor |
-| `Faturamento.tsx` | cartao, pix, dinheiro, delivery |
-| `CustosFixos.tsx` | valor, metaInput |
-| `Encomendas.tsx` | valor_total, valor_entrada |
-| `Cartoes.tsx` | itemForm.valor |
-| `Insumos.tsx` | valor_pago |
+Adicionar:
 
-### 4. Ajuste no `handleSubmit` de cada pagina
+**a) Botao "Nova Fatura"** (quando um cartao esta selecionado)
+- Dialog com: mes de referencia (select de mes/ano), status inicial
+- Cria fatura vazia no banco
 
-Onde hoje faz `toNumber(form.valor)`, passara a usar `parseCurrency(form.valor)` para converter "1.000,00" em `1000`.
+**b) Botao "Adicionar Compra" dentro de cada fatura expandida**
+- Dialog com: descricao, valor, data da compra, categoria (opcional), parcelas
+- Se parcelas > 1: campo "parcela atual" (ex: 5 de 10)
+- Ao salvar:
+  - Cria item na fatura atual
+  - Se parcelado com parcela_atual informada: cria automaticamente itens nas faturas anteriores e futuras (criando as faturas se nao existirem)
+  - Recalcula valor_total de todas as faturas afetadas
 
-### 5. Ajuste no `openEdit`
+**c) Edicao de itens da fatura**
+- Cada item tera botoes editar/excluir
+- Editar: altera descricao, valor, data
+- Excluir: remove item, recalcula valor_total da fatura
+- Se o item tem gasto_id vinculado, excluir tambem remove o gasto
 
-Ao abrir edicao, converter o valor numerico do banco para string formatada usando `maskCurrency`.
+**d) Edicao de fatura**
+- Alterar mes de referencia
+- Marcar como paga/aberta (ja existe via togglePaga)
+
+**e) Exclusao de fatura**
+- Remove fatura e todos seus itens (CASCADE ja configurado)
+
+### 3. Sincronizacao Gastos <-> Faturas
+
+**Ao deletar gasto na aba Gastos:**
+- Trigger no banco remove itens_fatura com gasto_id correspondente
+- Recalcula valor_total da fatura
+
+**Ao deletar item na fatura que tem gasto_id:**
+- Frontend deleta o gasto correspondente tambem
+
+**Compras criadas diretamente na fatura (sem gasto_id):**
+- NAO aparecem na aba Gastos
+- So impactam despesas quando fatura e marcada como paga (logica do Dashboard ja funciona assim)
+
+### 4. Parcelamento no Meio do Ciclo
+
+Quando usuario informa parcela_atual > 1:
+- Sistema calcula faturas anteriores baseado no dia_fechamento do cartao
+- Cria faturas passadas se nao existirem
+- Distribui parcelas automaticamente
+- Cada parcela mostra "X/Y" (ja existe no frontend)
+
+Exemplo: compra 10x, parcela atual 5, mes atual marco
+- Cria parcelas 1-4 em nov, dez, jan, fev
+- Cria parcelas 6-10 em abr, mai, jun, jul, ago
 
 ## Arquivos Afetados
 
-| Arquivo | Tipo |
+| Arquivo | Alteracao |
 |---|---|
-| `src/lib/currency-mask.ts` | Novo |
-| `src/components/ui/currency-input.tsx` | Novo |
-| `src/pages/Gastos.tsx` | Editar |
-| `src/pages/Faturamento.tsx` | Editar |
-| `src/pages/CustosFixos.tsx` | Editar |
-| `src/pages/Encomendas.tsx` | Editar |
-| `src/pages/Cartoes.tsx` | Editar |
-| `src/pages/Insumos.tsx` | Editar |
+| Migracao SQL | Coluna `data_compra`, trigger sync exclusao |
+| `src/pages/Cartoes.tsx` | Refatoracao completa: criar fatura, adicionar/editar/excluir itens, parcelamento meio ciclo |
+| `src/pages/Gastos.tsx` | Ajustar `handleDelete` para tambem limpar itens_fatura (trigger faz isso) |
+
+## Nao Muda
+
+- Logica do Dashboard (despesas pagas = faturas pagas + gastos nao-cartao)
+- Aba Faturamento (fechamentos diarios, conceito diferente)
+- RLS policies (itens_fatura ja tem policies via join com faturas/cartoes)
 

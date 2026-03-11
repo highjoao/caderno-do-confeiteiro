@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrency, numberToMask } from "@/lib/currency-mask";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -174,7 +176,7 @@ const Cartoes = () => {
     setEditingItemId(item.id);
     setItemForm({
       descricao: item.descricao,
-      valor: String(toNumber(item.valor)),
+      valor: numberToMask(toNumber(item.valor)),
       data_compra: item.data_compra || "",
       categoria: item.categoria || "",
       parcelas: String(item.total_parcelas || 1),
@@ -189,7 +191,7 @@ const Cartoes = () => {
 
     const totalParcelas = Math.max(1, parseInt(itemForm.parcelas) || 1);
     const parcelaAtual = Math.max(1, Math.min(totalParcelas, parseInt(itemForm.parcela_atual) || 1));
-    const valorTotal = toNumber(itemForm.valor);
+    const valorTotal = parseCurrency(itemForm.valor);
     const valorParcela = totalParcelas > 1 ? valorTotal / totalParcelas : valorTotal;
 
     if (editingItemId) {
@@ -485,7 +487,7 @@ const Cartoes = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Valor Total (R$)</Label>
-                <Input type="number" step="0.01" value={itemForm.valor} onChange={(e) => setItemForm({ ...itemForm, valor: e.target.value })} required placeholder="0,00" />
+                <CurrencyInput value={itemForm.valor} onChange={(v) => setItemForm({ ...itemForm, valor: v })} required placeholder="0" />
               </div>
               <div className="space-y-2">
                 <Label>Data da Compra</Label>

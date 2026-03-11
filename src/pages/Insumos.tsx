@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrency, numberToMask } from "@/lib/currency-mask";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -46,7 +48,7 @@ const Insumos = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!empresaId) return;
-    const valor = toNumber(form.valor_pago);
+    const valor = parseCurrency(form.valor_pago);
     const qtd = toNumber(form.quantidade_comprada);
     const { porGrama, porUnidade } = calcCustos(valor, qtd, form.unidade);
 
@@ -78,7 +80,7 @@ const Insumos = () => {
   };
 
   const openEdit = (i: any) => {
-    setForm({ nome: i.nome, tipo: i.tipo, valor_pago: String(toNumber(i.valor_pago)), quantidade_comprada: String(toNumber(i.quantidade_comprada)), unidade: i.unidade });
+    setForm({ nome: i.nome, tipo: i.tipo, valor_pago: numberToMask(toNumber(i.valor_pago)), quantidade_comprada: String(toNumber(i.quantidade_comprada)), unidade: i.unidade });
     setEditingId(i.id);
     setDetailItem(null);
     setDialogOpen(true);
@@ -113,7 +115,7 @@ const Insumos = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Valor Pago (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor_pago} onChange={(e) => setForm({ ...form, valor_pago: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Valor Pago (R$)</Label><CurrencyInput placeholder="0" value={form.valor_pago} onChange={(v) => setForm({ ...form, valor_pago: v })} required /></div>
                 <div className="space-y-2"><Label>Qtd Comprada</Label><Input type="number" step="0.0001" placeholder="0" value={form.quantidade_comprada} onChange={(e) => setForm({ ...form, quantidade_comprada: e.target.value })} required /></div>
               </div>
               <Button type="submit" className="w-full">{editingId ? "Atualizar" : "Salvar"}</Button>

@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrency, numberToMask } from "@/lib/currency-mask";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -54,8 +56,8 @@ const Encomendas = () => {
       if (!error) foto_url = supabase.storage.from("encomendas_fotos").getPublicUrl(fileName).data.publicUrl;
     }
 
-    const valorTotal = toNumber(form.valor_total);
-    const valorEntrada = toNumber(form.valor_entrada);
+    const valorTotal = parseCurrency(form.valor_total);
+    const valorEntrada = parseCurrency(form.valor_entrada);
     const payload: any = {
       empresa_id: empresaId,
       cliente_nome: form.cliente_nome,
@@ -104,8 +106,8 @@ const Encomendas = () => {
     setForm({
       cliente_nome: enc.cliente_nome, cliente_telefone: enc.cliente_telefone || "",
       data_retirada: enc.data_retirada, hora_retirada: enc.hora_retirada?.slice(0, 5) || "",
-      observacao: enc.observacao || "", valor_total: String(toNumber(enc.valor_total)),
-      valor_entrada: String(toNumber(enc.valor_entrada)), status: enc.status,
+      observacao: enc.observacao || "", valor_total: numberToMask(toNumber(enc.valor_total)),
+      valor_entrada: numberToMask(toNumber(enc.valor_entrada)), status: enc.status,
     });
     const { data } = await supabase.from("encomenda_produtos").select("*").eq("encomenda_id", enc.id);
     setProdutosEnc((data || []).map((p: any) => ({ produto_id: p.produto_id || "", nome_produto: p.nome_produto, quantidade: String(toNumber(p.quantidade)) })));
@@ -208,12 +210,12 @@ const Encomendas = () => {
               <div className="space-y-2"><Label>Observação</Label><Textarea value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} /></div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Valor Total (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor_total} onChange={(e) => setForm({ ...form, valor_total: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>Valor Entrada (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor_entrada} onChange={(e) => setForm({ ...form, valor_entrada: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Valor Total (R$)</Label><CurrencyInput placeholder="0" value={form.valor_total} onChange={(v) => setForm({ ...form, valor_total: v })} required /></div>
+                <div className="space-y-2"><Label>Valor Entrada (R$)</Label><CurrencyInput placeholder="0" value={form.valor_entrada} onChange={(v) => setForm({ ...form, valor_entrada: v })} /></div>
               </div>
 
-              {toNumber(form.valor_total) > 0 && (
-                <p className="text-sm text-muted-foreground">Restante: {formatCurrency(toNumber(form.valor_total) - toNumber(form.valor_entrada))}</p>
+              {parseCurrency(form.valor_total) > 0 && (
+                <p className="text-sm text-muted-foreground">Restante: {formatCurrency(parseCurrency(form.valor_total) - parseCurrency(form.valor_entrada))}</p>
               )}
 
               <div className="space-y-2">

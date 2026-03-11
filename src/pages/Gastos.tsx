@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrency, numberToMask } from "@/lib/currency-mask";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -55,7 +57,7 @@ const Gastos = () => {
 
     const payload: any = {
       empresa_id: empresaId, data: new Date(form.data).toISOString(), fornecedor: form.fornecedor || null,
-      descricao: form.descricao, categoria: form.categoria, valor: toNumber(form.valor),
+      descricao: form.descricao, categoria: form.categoria, valor: parseCurrency(form.valor),
       forma_pagamento: form.forma_pagamento,
       cartao_id: form.forma_pagamento === "Cartão" ? form.cartao_id : null,
       parcelas: form.forma_pagamento === "Cartão" ? toNumber(form.parcelas) : 1,
@@ -128,7 +130,7 @@ const Gastos = () => {
     const dtLocal = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}T${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
     setForm({
       data: dtLocal, fornecedor: g.fornecedor || "", descricao: g.descricao,
-      categoria: g.categoria, valor: String(toNumber(g.valor)),
+      categoria: g.categoria, valor: numberToMask(toNumber(g.valor)),
       forma_pagamento: g.forma_pagamento, cartao_id: g.cartao_id || "", parcelas: String(g.parcelas || 1),
     });
     setEditingId(g.id);
@@ -149,7 +151,7 @@ const Gastos = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Data</Label><Input type="datetime-local" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>Valor (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Valor (R$)</Label><CurrencyInput placeholder="0" value={form.valor} onChange={(v) => setForm({ ...form, valor: v })} required /></div>
               </div>
               <div className="space-y-2"><Label>Descrição</Label><Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} required /></div>
               <div className="space-y-2"><Label>Fornecedor</Label><Input value={form.fornecedor} onChange={(e) => setForm({ ...form, fornecedor: e.target.value })} placeholder="Opcional" /></div>

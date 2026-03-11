@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrency, numberToMask } from "@/lib/currency-mask";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -31,7 +33,7 @@ const CustosFixos = () => {
     setCustos(data || []);
     const mesAtual = new Date().toISOString().slice(0, 7) + "-01";
     const { data: metaData } = await supabase.from("metas_faturamento").select("*").eq("empresa_id", empresaId).eq("mes_referencia", mesAtual).single();
-    if (metaData) { setMeta(toNumber(metaData.valor_meta)); setMetaId(metaData.id); setMetaInput(String(toNumber(metaData.valor_meta))); }
+    if (metaData) { setMeta(toNumber(metaData.valor_meta)); setMetaId(metaData.id); setMetaInput(numberToMask(toNumber(metaData.valor_meta))); }
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
     const today = new Date().toISOString().split("T")[0];
     const { data: fechData } = await supabase.from("fechamentos_diarios").select("total").eq("empresa_id", empresaId).gte("data", startOfMonth).lte("data", today);
@@ -48,7 +50,7 @@ const CustosFixos = () => {
     e.preventDefault();
     if (!empresaId) return;
     const payload = {
-      empresa_id: empresaId, nome: form.nome, valor: toNumber(form.valor),
+      empresa_id: empresaId, nome: form.nome, valor: parseCurrency(form.valor),
       dia_vencimento: parseInt(form.dia_vencimento), observacao: form.observacao || null,
     };
     if (editingId) {
@@ -66,7 +68,7 @@ const CustosFixos = () => {
   const saveMeta = async () => {
     if (!empresaId) return;
     const mesAtual = new Date().toISOString().slice(0, 7) + "-01";
-    const valor = toNumber(metaInput);
+    const valor = parseCurrency(metaInput);
     if (metaId) {
       await supabase.from("metas_faturamento").update({ valor_meta: valor }).eq("id", metaId);
     } else {
@@ -87,7 +89,7 @@ const CustosFixos = () => {
   };
 
   const openEdit = (c: any) => {
-    setForm({ nome: c.nome, valor: String(toNumber(c.valor)), dia_vencimento: String(c.dia_vencimento), observacao: c.observacao || "" });
+    setForm({ nome: c.nome, valor: numberToMask(toNumber(c.valor)), dia_vencimento: String(c.dia_vencimento), observacao: c.observacao || "" });
     setEditingId(c.id);
     setDetailItem(null);
     setDialogOpen(true);
@@ -104,7 +106,7 @@ const CustosFixos = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2"><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Valor (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Valor (R$)</Label><CurrencyInput placeholder="0" value={form.valor} onChange={(v) => setForm({ ...form, valor: v })} required /></div>
                 <div className="space-y-2"><Label>Dia Vencimento</Label><Input type="number" min="1" max="31" placeholder="1" value={form.dia_vencimento} onChange={(e) => setForm({ ...form, dia_vencimento: e.target.value })} required /></div>
               </div>
               <div className="space-y-2"><Label>Observação</Label><Textarea value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} /></div>
@@ -120,7 +122,7 @@ const CustosFixos = () => {
           <div className="flex gap-3 items-end">
             <div className="flex-1 space-y-2">
               <Label>Valor da Meta (R$)</Label>
-              <Input type="number" step="0.01" value={metaInput} onChange={(e) => setMetaInput(e.target.value)} placeholder="0" />
+              <CurrencyInput value={metaInput} onChange={(v) => setMetaInput(v)} placeholder="0" />
             </div>
             <Button onClick={saveMeta}>Salvar Meta</Button>
           </div>
