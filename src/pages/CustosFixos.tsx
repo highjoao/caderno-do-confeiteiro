@@ -106,7 +106,7 @@ const CustosFixos = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2"><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Valor (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Valor (R$)</Label><CurrencyInput placeholder="0" value={form.valor} onChange={(v) => setForm({ ...form, valor: v })} required /></div>
                 <div className="space-y-2"><Label>Dia Vencimento</Label><Input type="number" min="1" max="31" placeholder="1" value={form.dia_vencimento} onChange={(e) => setForm({ ...form, dia_vencimento: e.target.value })} required /></div>
               </div>
               <div className="space-y-2"><Label>Observação</Label><Textarea value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} /></div>
