@@ -223,7 +223,7 @@ const Gastos = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div><p className="text-xs text-muted-foreground">Descrição</p><p className="text-sm font-medium">{detailItem.descricao}</p></div>
                 <div><p className="text-xs text-muted-foreground">Valor</p><p className="text-sm font-bold text-destructive">{formatCurrency(toNumber(detailItem.valor))}</p></div>
-                <div><p className="text-xs text-muted-foreground">Data</p><p className="text-sm font-medium">{formatDate(detailItem.data)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Data</p><p className="text-sm font-medium">{formatDateTime(detailItem.data)}</p></div>
                 <div><p className="text-xs text-muted-foreground">Categoria</p><p className="text-sm font-medium">{detailItem.categoria}</p></div>
                 <div><p className="text-xs text-muted-foreground">Pagamento</p><p className="text-sm font-medium">{detailItem.forma_pagamento}</p></div>
                 {detailItem.fornecedor && <div><p className="text-xs text-muted-foreground">Fornecedor</p><p className="text-sm font-medium">{detailItem.fornecedor}</p></div>}
