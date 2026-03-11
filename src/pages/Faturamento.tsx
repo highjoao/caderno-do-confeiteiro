@@ -88,10 +88,10 @@ const Faturamento = () => {
     fetchData();
   };
 
-  const chartData = [...fechamentos].reverse().map((f) => ({
-    data: new Date(f.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-    total: toNumber(f.total),
-  }));
+  const chartData = [...fechamentos].reverse().map((f) => {
+    const [y, m, d] = (f.data as string).split("-");
+    return { data: `${d}/${m}`, total: toNumber(f.total) };
+  });
 
   return (
     <div className="space-y-6">
