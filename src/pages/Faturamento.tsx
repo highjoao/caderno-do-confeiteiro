@@ -32,7 +32,7 @@ const Faturamento = () => {
 
   useEffect(() => { fetchData(); }, [empresaId]);
 
-  const total = (toNumber(form.cartao) + toNumber(form.pix) + toNumber(form.dinheiro) + toNumber(form.delivery));
+  const total = (parseCurrency(form.cartao) + parseCurrency(form.pix) + parseCurrency(form.dinheiro) + parseCurrency(form.delivery));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
