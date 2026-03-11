@@ -1,20 +1,14 @@
 /**
  * Masks raw input into pt-BR currency format.
- * - Digits starting with "0" are treated as cents (divided by 100).
- * - Other digits are treated as whole numbers with 2 decimal places.
+ * All digits are treated as cents (divided by 100).
  *
- * Examples: "1" → "1,00", "010" → "0,10", "1000" → "1.000,00"
+ * Examples: "1" → "0,01", "10" → "0,10", "100" → "1,00", "100000" → "1.000,00"
  */
 export function maskCurrency(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return "";
-  if (digits.startsWith("0")) {
-    return (Number(digits) / 100).toLocaleString("pt-BR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
-  return Number(digits).toLocaleString("pt-BR", {
+  const number = Number(digits) / 100;
+  return number.toLocaleString("pt-BR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });

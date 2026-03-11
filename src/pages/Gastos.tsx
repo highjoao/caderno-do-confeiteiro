@@ -17,6 +17,25 @@ import ItemActions from "@/components/ItemActions";
 const CATEGORIAS = ["Ingredientes", "Embalagens", "Equipamentos", "Manutenção", "Marketing", "Transporte", "Outros"].sort();
 const FORMAS_PAGAMENTO = ["Pix", "Dinheiro", "Boleto", "Cartão"].sort();
 
+/** Extract storage path from a foto_url that may be a full URL or just a path */
+function extractStoragePath(fotoUrl: string, bucket: string): string {
+  if (!fotoUrl) return fotoUrl;
+  // If it's already a simple path (no http), return as-is
+  if (!fotoUrl.startsWith("http")) return fotoUrl;
+  // Try to extract path after /object/public/<bucket>/ or /object/sign/<bucket>/
+  const patterns = [
+    `/object/public/${bucket}/`,
+    `/object/sign/${bucket}/`,
+    `/storage/v1/object/public/${bucket}/`,
+    `/storage/v1/object/sign/${bucket}/`,
+  ];
+  for (const pattern of patterns) {
+    const idx = fotoUrl.indexOf(pattern);
+    if (idx !== -1) return decodeURIComponent(fotoUrl.slice(idx + pattern.length).split("?")[0]);
+  }
+  return fotoUrl;
+}
+
 const Gastos = () => {
   const { empresaId } = useAuth();
   const { toast } = useToast();
@@ -25,6 +44,8 @@ const Gastos = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<any | null>(null);
+  const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
   const [form, setForm] = useState({
     data: nowDateTimeString(), fornecedor: "", descricao: "", categoria: "", valor: "",
     forma_pagamento: "", cartao_id: "", parcelas: "1",
@@ -41,6 +62,16 @@ const Gastos = () => {
 
   useEffect(() => { fetchData(); }, [empresaId]);
 
+  // Generate signed URL when detail item changes
+  useEffect(() => {
+    setDetailImageUrl(null);
+    if (!detailItem?.foto_url) return;
+    const path = extractStoragePath(detailItem.foto_url, "notas_fiscais");
+    supabase.storage.from("notas_fiscais").createSignedUrl(path, 3600).then(({ data }) => {
+      if (data?.signedUrl) setDetailImageUrl(data.signedUrl);
+    });
+  }, [detailItem]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!empresaId) return;
@@ -50,8 +81,7 @@ const Gastos = () => {
       const fileName = `${empresaId}/${Date.now()}_${fotoFile.name}`;
       const { error: uploadError } = await supabase.storage.from("notas_fiscais").upload(fileName, fotoFile);
       if (!uploadError) {
-        const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(fileName);
-        foto_url = urlData.publicUrl;
+        foto_url = fileName; // Save path only, not public URL
       }
     }
 
@@ -125,7 +155,6 @@ const Gastos = () => {
   };
 
   const openEdit = (g: any) => {
-    // Convert ISO timestamp back to datetime-local format
     const dt = g.data ? new Date(g.data) : new Date();
     const dtLocal = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}T${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
     setForm({
@@ -151,7 +180,7 @@ const Gastos = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Data</Label><Input type="datetime-local" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>Valor (R$)</Label><CurrencyInput placeholder="0" value={form.valor} onChange={(v) => setForm({ ...form, valor: v })} required /></div>
+                <div className="space-y-2"><Label>Valor (R$)</Label><CurrencyInput placeholder="0,00" value={form.valor} onChange={(v) => setForm({ ...form, valor: v })} required /></div>
               </div>
               <div className="space-y-2"><Label>Descrição</Label><Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} required /></div>
               <div className="space-y-2"><Label>Fornecedor</Label><Input value={form.fornecedor} onChange={(e) => setForm({ ...form, fornecedor: e.target.value })} placeholder="Opcional" /></div>
@@ -235,7 +264,16 @@ const Gastos = () => {
               {detailItem.foto_url && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Nota Fiscal</p>
-                  <img src={detailItem.foto_url} alt="Nota fiscal" className="rounded-lg max-h-48 object-cover w-full" />
+                  {detailImageUrl ? (
+                    <img
+                      src={detailImageUrl}
+                      alt="Nota fiscal"
+                      className="rounded-lg max-h-48 object-cover w-full cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setImageModalOpen(true)}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Carregando imagem...</p>
+                  )}
                 </div>
               )}
               <div className="flex gap-2 pt-2">
@@ -243,6 +281,15 @@ const Gastos = () => {
                 <Button variant="destructive" className="flex-1" onClick={() => handleDelete(detailItem.id)}>Excluir</Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Full-Size Modal */}
+      <Dialog open={imageModalOpen} onOpenChange={setImageModalOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-2">
+          {detailImageUrl && (
+            <img src={detailImageUrl} alt="Nota fiscal ampliada" className="w-full h-full object-contain" />
           )}
         </DialogContent>
       </Dialog>

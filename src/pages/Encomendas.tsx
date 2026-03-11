@@ -18,6 +18,23 @@ import ItemActions from "@/components/ItemActions";
 
 const STATUS_OPTIONS = ["Cancelada", "Em Produção", "Entregue", "Pendente", "Pronta"];
 
+/** Extract storage path from a foto_url that may be a full URL or just a path */
+function extractStoragePath(fotoUrl: string, bucket: string): string {
+  if (!fotoUrl) return fotoUrl;
+  if (!fotoUrl.startsWith("http")) return fotoUrl;
+  const patterns = [
+    `/object/public/${bucket}/`,
+    `/object/sign/${bucket}/`,
+    `/storage/v1/object/public/${bucket}/`,
+    `/storage/v1/object/sign/${bucket}/`,
+  ];
+  for (const pattern of patterns) {
+    const idx = fotoUrl.indexOf(pattern);
+    if (idx !== -1) return decodeURIComponent(fotoUrl.slice(idx + pattern.length).split("?")[0]);
+  }
+  return fotoUrl;
+}
+
 const Encomendas = () => {
   const { empresaId } = useAuth();
   const { toast } = useToast();
@@ -34,6 +51,8 @@ const Encomendas = () => {
   const [view, setView] = useState<"lista" | "calendario">("lista");
   const [detailEnc, setDetailEnc] = useState<any | null>(null);
   const [detailProdutos, setDetailProdutos] = useState<any[]>([]);
+  const [detailImageUrl, setDetailImageUrl] = useState<string | null>(null);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
 
   const fetchData = async () => {
     if (!empresaId) return;
@@ -45,6 +64,16 @@ const Encomendas = () => {
 
   useEffect(() => { fetchData(); }, [empresaId]);
 
+  // Generate signed URL when detail item changes
+  useEffect(() => {
+    setDetailImageUrl(null);
+    if (!detailEnc?.foto_url) return;
+    const path = extractStoragePath(detailEnc.foto_url, "encomendas_fotos");
+    supabase.storage.from("encomendas_fotos").createSignedUrl(path, 3600).then(({ data }) => {
+      if (data?.signedUrl) setDetailImageUrl(data.signedUrl);
+    });
+  }, [detailEnc]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!empresaId) return;
@@ -53,7 +82,7 @@ const Encomendas = () => {
     if (fotoFile) {
       const fileName = `${empresaId}/${Date.now()}_${fotoFile.name}`;
       const { error } = await supabase.storage.from("encomendas_fotos").upload(fileName, fotoFile);
-      if (!error) foto_url = supabase.storage.from("encomendas_fotos").getPublicUrl(fileName).data.publicUrl;
+      if (!error) foto_url = fileName; // Save path only
     }
 
     const valorTotal = parseCurrency(form.valor_total);
@@ -210,8 +239,8 @@ const Encomendas = () => {
               <div className="space-y-2"><Label>Observação</Label><Textarea value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} /></div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Valor Total (R$)</Label><CurrencyInput placeholder="0" value={form.valor_total} onChange={(v) => setForm({ ...form, valor_total: v })} required /></div>
-                <div className="space-y-2"><Label>Valor Entrada (R$)</Label><CurrencyInput placeholder="0" value={form.valor_entrada} onChange={(v) => setForm({ ...form, valor_entrada: v })} /></div>
+                <div className="space-y-2"><Label>Valor Total (R$)</Label><CurrencyInput placeholder="0,00" value={form.valor_total} onChange={(v) => setForm({ ...form, valor_total: v })} required /></div>
+                <div className="space-y-2"><Label>Valor Entrada (R$)</Label><CurrencyInput placeholder="0,00" value={form.valor_entrada} onChange={(v) => setForm({ ...form, valor_entrada: v })} /></div>
               </div>
 
               {parseCurrency(form.valor_total) > 0 && (
@@ -374,7 +403,16 @@ const Encomendas = () => {
               {detailEnc.foto_url && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Foto</p>
-                  <img src={detailEnc.foto_url} alt="Foto da encomenda" className="rounded-lg max-h-48 object-cover w-full" />
+                  {detailImageUrl ? (
+                    <img
+                      src={detailImageUrl}
+                      alt="Foto da encomenda"
+                      className="rounded-lg max-h-48 object-cover w-full cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setImageModalOpen(true)}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Carregando imagem...</p>
+                  )}
                 </div>
               )}
 
@@ -383,6 +421,15 @@ const Encomendas = () => {
                 <Button variant="destructive" className="flex-1" onClick={() => handleDelete(detailEnc.id)}>Excluir</Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Full-Size Modal */}
+      <Dialog open={imageModalOpen} onOpenChange={setImageModalOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-2">
+          {detailImageUrl && (
+            <img src={detailImageUrl} alt="Foto ampliada" className="w-full h-full object-contain" />
           )}
         </DialogContent>
       </Dialog>
