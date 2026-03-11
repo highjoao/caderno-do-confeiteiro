@@ -89,7 +89,7 @@ const CustosFixos = () => {
   };
 
   const openEdit = (c: any) => {
-    setForm({ nome: c.nome, valor: String(toNumber(c.valor)), dia_vencimento: String(c.dia_vencimento), observacao: c.observacao || "" });
+    setForm({ nome: c.nome, valor: numberToMask(toNumber(c.valor)), dia_vencimento: String(c.dia_vencimento), observacao: c.observacao || "" });
     setEditingId(c.id);
     setDetailItem(null);
     setDialogOpen(true);
