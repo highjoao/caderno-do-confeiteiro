@@ -68,7 +68,7 @@ const CustosFixos = () => {
   const saveMeta = async () => {
     if (!empresaId) return;
     const mesAtual = new Date().toISOString().slice(0, 7) + "-01";
-    const valor = toNumber(metaInput);
+    const valor = parseCurrency(metaInput);
     if (metaId) {
       await supabase.from("metas_faturamento").update({ valor_meta: valor }).eq("id", metaId);
     } else {
