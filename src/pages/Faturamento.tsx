@@ -20,7 +20,7 @@ const Faturamento = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<any | null>(null);
-  const [form, setForm] = useState({ data: "", cartao: "", pix: "", dinheiro: "", delivery: "", observacao: "" });
+  const [form, setForm] = useState({ data: todayDateString(), cartao: "", pix: "", dinheiro: "", delivery: "", observacao: "" });
 
   const fetchData = async () => {
     if (!empresaId) return;
