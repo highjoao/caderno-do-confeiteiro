@@ -38,14 +38,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "base_insumos_base_id_fkey"
+            foreignKeyName: "fk_base_insumos_base_id"
             columns: ["base_id"]
             isOneToOne: false
             referencedRelation: "bases"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "base_insumos_insumo_id_fkey"
+            foreignKeyName: "fk_base_insumos_insumo_id"
             columns: ["insumo_id"]
             isOneToOne: false
             referencedRelation: "insumos"
@@ -212,17 +212,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "encomenda_produtos_encomenda_id_fkey"
-            columns: ["encomenda_id"]
-            isOneToOne: false
-            referencedRelation: "encomendas"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "encomenda_produtos_produto_id_fkey"
             columns: ["produto_id"]
             isOneToOne: false
             referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_encomenda_produtos_encomenda_id"
+            columns: ["encomenda_id"]
+            isOneToOne: false
+            referencedRelation: "encomendas"
             referencedColumns: ["id"]
           },
         ]
@@ -310,7 +310,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "faturas_cartao_id_fkey"
+            foreignKeyName: "fk_faturas_cartao_id"
             columns: ["cartao_id"]
             isOneToOne: false
             referencedRelation: "cartoes"
@@ -413,7 +413,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "gastos_cartao_id_fkey"
+            foreignKeyName: "fk_gastos_cartao_id"
             columns: ["cartao_id"]
             isOneToOne: false
             referencedRelation: "cartoes"
@@ -477,7 +477,9 @@ export type Database = {
       }
       itens_fatura: {
         Row: {
+          categoria: string | null
           criado_em: string
+          data_compra: string | null
           descricao: string
           fatura_id: string
           gasto_id: string | null
@@ -487,7 +489,9 @@ export type Database = {
           valor: number
         }
         Insert: {
+          categoria?: string | null
           criado_em?: string
+          data_compra?: string | null
           descricao: string
           fatura_id: string
           gasto_id?: string | null
@@ -497,7 +501,9 @@ export type Database = {
           valor: number
         }
         Update: {
+          categoria?: string | null
           criado_em?: string
+          data_compra?: string | null
           descricao?: string
           fatura_id?: string
           gasto_id?: string | null
@@ -508,7 +514,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "itens_fatura_fatura_id_fkey"
+            foreignKeyName: "fk_itens_fatura_fatura_id"
             columns: ["fatura_id"]
             isOneToOne: false
             referencedRelation: "faturas"
@@ -600,7 +606,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "perfis_empresa_id_fkey"
+            foreignKeyName: "fk_perfis_empresa_id"
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
@@ -638,7 +644,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "produto_componentes_produto_id_fkey"
+            foreignKeyName: "fk_produto_componentes_produto_id"
             columns: ["produto_id"]
             isOneToOne: false
             referencedRelation: "produtos"
