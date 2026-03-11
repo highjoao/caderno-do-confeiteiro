@@ -477,7 +477,9 @@ export type Database = {
       }
       itens_fatura: {
         Row: {
+          categoria: string | null
           criado_em: string
+          data_compra: string | null
           descricao: string
           fatura_id: string
           gasto_id: string | null
@@ -487,7 +489,9 @@ export type Database = {
           valor: number
         }
         Insert: {
+          categoria?: string | null
           criado_em?: string
+          data_compra?: string | null
           descricao: string
           fatura_id: string
           gasto_id?: string | null
@@ -497,7 +501,9 @@ export type Database = {
           valor: number
         }
         Update: {
+          categoria?: string | null
           criado_em?: string
+          data_compra?: string | null
           descricao?: string
           fatura_id?: string
           gasto_id?: string | null
