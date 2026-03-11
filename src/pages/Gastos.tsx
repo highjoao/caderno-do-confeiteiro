@@ -24,7 +24,7 @@ const Gastos = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<any | null>(null);
   const [form, setForm] = useState({
-    data: "", fornecedor: "", descricao: "", categoria: "", valor: "",
+    data: nowDateTimeString(), fornecedor: "", descricao: "", categoria: "", valor: "",
     forma_pagamento: "", cartao_id: "", parcelas: "1",
   });
   const [fotoFile, setFotoFile] = useState<File | null>(null);
