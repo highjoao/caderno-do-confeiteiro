@@ -57,7 +57,7 @@ const Gastos = () => {
 
     const payload: any = {
       empresa_id: empresaId, data: new Date(form.data).toISOString(), fornecedor: form.fornecedor || null,
-      descricao: form.descricao, categoria: form.categoria, valor: toNumber(form.valor),
+      descricao: form.descricao, categoria: form.categoria, valor: parseCurrency(form.valor),
       forma_pagamento: form.forma_pagamento,
       cartao_id: form.forma_pagamento === "Cartão" ? form.cartao_id : null,
       parcelas: form.forma_pagamento === "Cartão" ? toNumber(form.parcelas) : 1,
