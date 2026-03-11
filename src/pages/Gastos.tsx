@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, formatDate, toNumber } from "@/lib/format";
+import { formatCurrency, formatDateTime, toNumber, nowDateTimeString } from "@/lib/format";
 import { Plus } from "lucide-react";
 import ItemActions from "@/components/ItemActions";
 
