@@ -200,7 +200,7 @@ const Gastos = () => {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{g.descricao}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(g.data)} · {g.categoria} · {g.forma_pagamento}
+                      {formatDateTime(g.data)} · {g.categoria} · {g.forma_pagamento}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
