@@ -191,7 +191,7 @@ const Cartoes = () => {
 
     const totalParcelas = Math.max(1, parseInt(itemForm.parcelas) || 1);
     const parcelaAtual = Math.max(1, Math.min(totalParcelas, parseInt(itemForm.parcela_atual) || 1));
-    const valorTotal = toNumber(itemForm.valor);
+    const valorTotal = parseCurrency(itemForm.valor);
     const valorParcela = totalParcelas > 1 ? valorTotal / totalParcelas : valorTotal;
 
     if (editingItemId) {
