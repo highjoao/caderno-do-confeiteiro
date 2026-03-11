@@ -50,7 +50,7 @@ const CustosFixos = () => {
     e.preventDefault();
     if (!empresaId) return;
     const payload = {
-      empresa_id: empresaId, nome: form.nome, valor: toNumber(form.valor),
+      empresa_id: empresaId, nome: form.nome, valor: parseCurrency(form.valor),
       dia_vencimento: parseInt(form.dia_vencimento), observacao: form.observacao || null,
     };
     if (editingId) {
