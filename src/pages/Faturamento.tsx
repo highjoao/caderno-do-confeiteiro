@@ -66,7 +66,7 @@ const Faturamento = () => {
   };
 
   const resetForm = () => {
-    setForm({ data: "", cartao: "", pix: "", dinheiro: "", delivery: "", observacao: "" });
+    setForm({ data: todayDateString(), cartao: "", pix: "", dinheiro: "", delivery: "", observacao: "" });
     setEditingId(null);
   };
 
