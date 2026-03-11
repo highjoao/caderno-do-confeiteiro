@@ -5,8 +5,51 @@ export const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
+/**
+ * Formats a date string for display in pt-BR locale.
+ * Handles both date-only strings (YYYY-MM-DD) and full ISO timestamps.
+ * Uses explicit timezone to prevent mobile date shifting.
+ */
 export const formatDate = (date: string): string => {
-  return new Date(date + "T00:00:00").toLocaleDateString("pt-BR");
+  if (!date) return "";
+  // If it's a date-only string (YYYY-MM-DD), parse parts manually to avoid timezone shift
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [y, m, d] = date.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  // Full timestamp — use locale formatting with explicit timezone
+  return new Date(date).toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+  });
+};
+
+/**
+ * Formats a full timestamp (date + time) for display.
+ */
+export const formatDateTime = (date: string): string => {
+  if (!date) return "";
+  return new Date(date).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+};
+
+/**
+ * Returns a YYYY-MM-DD string from the current local date,
+ * safe for <input type="date"> default values.
+ */
+export const todayDateString = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+
+/**
+ * Returns a YYYY-MM-DDTHH:mm string for <input type="datetime-local"> default values.
+ */
+export const nowDateTimeString = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 };
 
 export const formatPercent = (value: number): string => {
@@ -30,10 +73,8 @@ export const formatDecimal = (value: number, maxDecimals: number = 2): string =>
 /** Format cost per unit with appropriate decimal places based on unit */
 export const formatCostPerUnit = (value: number, unit: string): string => {
   if (unit === "g" || unit === "ml") {
-    // Cost per gram/ml can be very small — show up to 4 decimals
     return `R$ ${formatDecimal(value, 4)}/${unit}`;
   }
-  // Kg, L, Unidade — 2 decimals
   return `R$ ${formatDecimal(value, 2)}/${unit}`;
 };
 
@@ -45,7 +86,6 @@ export const formatQuantidade = (value: number, unit: string): string => {
   if (unit === "Kg" || unit === "L") {
     return formatDecimal(value, 3);
   }
-  // g, ml — no unnecessary decimals
   return formatDecimal(value, 2);
 };
 
@@ -57,27 +97,20 @@ export const convertAndCalcCost = (
   custoUnidade: number,
   unidadeInsumo: string
 ): number => {
-  // If the recipe unit matches insumo unit, straightforward
   if (unidadeReceita === unidadeInsumo || !unidadeReceita) {
     return custoUnidade * quantidade;
   }
-
-  // Weight conversions
   if (unidadeReceita === "Kg" && (unidadeInsumo === "g" || unidadeInsumo === "Kg")) {
     return custoGrama * quantidade * 1000;
   }
   if (unidadeReceita === "g" && (unidadeInsumo === "g" || unidadeInsumo === "Kg")) {
     return custoGrama * quantidade;
   }
-
-  // Volume conversions (treat ml cost like g cost)
   if (unidadeReceita === "L" && (unidadeInsumo === "ml" || unidadeInsumo === "L")) {
     return custoGrama * quantidade * 1000;
   }
   if (unidadeReceita === "ml" && (unidadeInsumo === "ml" || unidadeInsumo === "L")) {
     return custoGrama * quantidade;
   }
-
-  // Fallback: use unit cost
   return custoUnidade * quantidade;
 };
