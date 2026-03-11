@@ -33,7 +33,7 @@ const CustosFixos = () => {
     setCustos(data || []);
     const mesAtual = new Date().toISOString().slice(0, 7) + "-01";
     const { data: metaData } = await supabase.from("metas_faturamento").select("*").eq("empresa_id", empresaId).eq("mes_referencia", mesAtual).single();
-    if (metaData) { setMeta(toNumber(metaData.valor_meta)); setMetaId(metaData.id); setMetaInput(String(toNumber(metaData.valor_meta))); }
+    if (metaData) { setMeta(toNumber(metaData.valor_meta)); setMetaId(metaData.id); setMetaInput(numberToMask(toNumber(metaData.valor_meta))); }
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
     const today = new Date().toISOString().split("T")[0];
     const { data: fechData } = await supabase.from("fechamentos_diarios").select("total").eq("empresa_id", empresaId).gte("data", startOfMonth).lte("data", today);

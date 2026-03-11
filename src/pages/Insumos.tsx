@@ -115,7 +115,7 @@ const Insumos = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Valor Pago (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor_pago} onChange={(e) => setForm({ ...form, valor_pago: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Valor Pago (R$)</Label><CurrencyInput placeholder="0" value={form.valor_pago} onChange={(v) => setForm({ ...form, valor_pago: v })} required /></div>
                 <div className="space-y-2"><Label>Qtd Comprada</Label><Input type="number" step="0.0001" placeholder="0" value={form.quantidade_comprada} onChange={(e) => setForm({ ...form, quantidade_comprada: e.target.value })} required /></div>
               </div>
               <Button type="submit" className="w-full">{editingId ? "Atualizar" : "Salvar"}</Button>

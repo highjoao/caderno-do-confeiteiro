@@ -106,10 +106,10 @@ const Faturamento = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2"><Label>Data</Label><Input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Cartão (R$)</Label><Input type="number" step="0.01" value={form.cartao} onChange={(e) => setForm({ ...form, cartao: e.target.value })} placeholder="0" /></div>
-                <div className="space-y-2"><Label>Pix (R$)</Label><Input type="number" step="0.01" value={form.pix} onChange={(e) => setForm({ ...form, pix: e.target.value })} placeholder="0" /></div>
-                <div className="space-y-2"><Label>Dinheiro (R$)</Label><Input type="number" step="0.01" value={form.dinheiro} onChange={(e) => setForm({ ...form, dinheiro: e.target.value })} placeholder="0" /></div>
-                <div className="space-y-2"><Label>Delivery (R$)</Label><Input type="number" step="0.01" value={form.delivery} onChange={(e) => setForm({ ...form, delivery: e.target.value })} placeholder="0" /></div>
+                <div className="space-y-2"><Label>Cartão (R$)</Label><CurrencyInput value={form.cartao} onChange={(v) => setForm({ ...form, cartao: v })} placeholder="0" /></div>
+                <div className="space-y-2"><Label>Pix (R$)</Label><CurrencyInput value={form.pix} onChange={(v) => setForm({ ...form, pix: v })} placeholder="0" /></div>
+                <div className="space-y-2"><Label>Dinheiro (R$)</Label><CurrencyInput value={form.dinheiro} onChange={(v) => setForm({ ...form, dinheiro: v })} placeholder="0" /></div>
+                <div className="space-y-2"><Label>Delivery (R$)</Label><CurrencyInput value={form.delivery} onChange={(v) => setForm({ ...form, delivery: v })} placeholder="0" /></div>
               </div>
               <div className="p-3 rounded-lg bg-primary/10 text-center">
                 <p className="text-sm text-muted-foreground">Total do Dia</p>

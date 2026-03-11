@@ -487,7 +487,7 @@ const Cartoes = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Valor Total (R$)</Label>
-                <Input type="number" step="0.01" value={itemForm.valor} onChange={(e) => setItemForm({ ...itemForm, valor: e.target.value })} required placeholder="0,00" />
+                <CurrencyInput value={itemForm.valor} onChange={(v) => setItemForm({ ...itemForm, valor: v })} required placeholder="0" />
               </div>
               <div className="space-y-2">
                 <Label>Data da Compra</Label>

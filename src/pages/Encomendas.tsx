@@ -214,8 +214,8 @@ const Encomendas = () => {
                 <div className="space-y-2"><Label>Valor Entrada (R$)</Label><CurrencyInput placeholder="0" value={form.valor_entrada} onChange={(v) => setForm({ ...form, valor_entrada: v })} /></div>
               </div>
 
-              {toNumber(form.valor_total) > 0 && (
-                <p className="text-sm text-muted-foreground">Restante: {formatCurrency(toNumber(form.valor_total) - toNumber(form.valor_entrada))}</p>
+              {parseCurrency(form.valor_total) > 0 && (
+                <p className="text-sm text-muted-foreground">Restante: {formatCurrency(parseCurrency(form.valor_total) - parseCurrency(form.valor_entrada))}</p>
               )}
 
               <div className="space-y-2">

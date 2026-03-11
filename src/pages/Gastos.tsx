@@ -151,7 +151,7 @@ const Gastos = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Data</Label><Input type="datetime-local" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>Valor (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Valor (R$)</Label><CurrencyInput placeholder="0" value={form.valor} onChange={(v) => setForm({ ...form, valor: v })} required /></div>
               </div>
               <div className="space-y-2"><Label>Descrição</Label><Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} required /></div>
               <div className="space-y-2"><Label>Fornecedor</Label><Input value={form.fornecedor} onChange={(e) => setForm({ ...form, fornecedor: e.target.value })} placeholder="Opcional" /></div>
