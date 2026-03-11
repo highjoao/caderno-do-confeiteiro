@@ -74,8 +74,8 @@ const Faturamento = () => {
 
   const openEdit = (f: any) => {
     setForm({
-      data: f.data, cartao: String(toNumber(f.cartao)), pix: String(toNumber(f.pix)),
-      dinheiro: String(toNumber(f.dinheiro)), delivery: String(toNumber(f.delivery)),
+      data: f.data, cartao: numberToMask(toNumber(f.cartao)), pix: numberToMask(toNumber(f.pix)),
+      dinheiro: numberToMask(toNumber(f.dinheiro)), delivery: numberToMask(toNumber(f.delivery)),
       observacao: f.observacao || "",
     });
     setEditingId(f.id);
