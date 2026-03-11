@@ -162,10 +162,10 @@ const Dashboard = () => {
   const percMeta = metaValor > 0 ? (faturamentoTotal / metaValor) * 100 : 0;
   const percCustoFixo = metaValor > 0 ? (custosFixosTotal / metaValor) * 100 : 0;
 
-  const chartData = fechamentos.map((f) => ({
-    data: new Date(f.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-    total: toNumber(f.total),
-  }));
+  const chartData = fechamentos.map((f) => {
+    const [y, m, d] = (f.data as string).split("-");
+    return { data: `${d}/${m}`, total: toNumber(f.total) };
+  });
 
   const pagamentoData = [
     { name: "Cartão", value: fechamentos.reduce((s, f) => s + toNumber(f.cartao), 0) },
