@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, formatDate, toNumber } from "@/lib/format";
+import { formatCurrency, formatDateTime, toNumber, nowDateTimeString } from "@/lib/format";
 import { Plus } from "lucide-react";
 import ItemActions from "@/components/ItemActions";
 
@@ -24,7 +24,7 @@ const Gastos = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<any | null>(null);
   const [form, setForm] = useState({
-    data: "", fornecedor: "", descricao: "", categoria: "", valor: "",
+    data: nowDateTimeString(), fornecedor: "", descricao: "", categoria: "", valor: "",
     forma_pagamento: "", cartao_id: "", parcelas: "1",
   });
   const [fotoFile, setFotoFile] = useState<File | null>(null);
@@ -54,7 +54,7 @@ const Gastos = () => {
     }
 
     const payload: any = {
-      empresa_id: empresaId, data: form.data, fornecedor: form.fornecedor || null,
+      empresa_id: empresaId, data: new Date(form.data).toISOString(), fornecedor: form.fornecedor || null,
       descricao: form.descricao, categoria: form.categoria, valor: toNumber(form.valor),
       forma_pagamento: form.forma_pagamento,
       cartao_id: form.forma_pagamento === "Cartão" ? form.cartao_id : null,
@@ -83,7 +83,7 @@ const Gastos = () => {
   const lancarNaFatura = async (cartaoId: string, gasto: any) => {
     const cartao = cartoes.find((c) => c.id === cartaoId);
     if (!cartao) return;
-    const dataCompra = new Date(gasto.data + "T00:00:00");
+    const dataCompra = new Date(gasto.data);
     const diaCompra = dataCompra.getDate();
     const parcelas = toNumber(gasto.parcelas) || 1;
     const valorParcela = toNumber(gasto.valor) / parcelas;
@@ -110,7 +110,7 @@ const Gastos = () => {
   };
 
   const resetForm = () => {
-    setForm({ data: "", fornecedor: "", descricao: "", categoria: "", valor: "", forma_pagamento: "", cartao_id: "", parcelas: "1" });
+    setForm({ data: nowDateTimeString(), fornecedor: "", descricao: "", categoria: "", valor: "", forma_pagamento: "", cartao_id: "", parcelas: "1" });
     setFotoFile(null);
     setEditingId(null);
   };
@@ -123,8 +123,11 @@ const Gastos = () => {
   };
 
   const openEdit = (g: any) => {
+    // Convert ISO timestamp back to datetime-local format
+    const dt = g.data ? new Date(g.data) : new Date();
+    const dtLocal = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}T${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
     setForm({
-      data: g.data, fornecedor: g.fornecedor || "", descricao: g.descricao,
+      data: dtLocal, fornecedor: g.fornecedor || "", descricao: g.descricao,
       categoria: g.categoria, valor: String(toNumber(g.valor)),
       forma_pagamento: g.forma_pagamento, cartao_id: g.cartao_id || "", parcelas: String(g.parcelas || 1),
     });
@@ -145,7 +148,7 @@ const Gastos = () => {
             <DialogHeader><DialogTitle>{editingId ? "Editar Gasto" : "Novo Gasto"}</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Data</Label><Input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Data</Label><Input type="datetime-local" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required /></div>
                 <div className="space-y-2"><Label>Valor (R$)</Label><Input type="number" step="0.01" placeholder="0" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} required /></div>
               </div>
               <div className="space-y-2"><Label>Descrição</Label><Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} required /></div>
@@ -197,7 +200,7 @@ const Gastos = () => {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{g.descricao}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(g.data)} · {g.categoria} · {g.forma_pagamento}
+                      {formatDateTime(g.data)} · {g.categoria} · {g.forma_pagamento}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -220,7 +223,7 @@ const Gastos = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div><p className="text-xs text-muted-foreground">Descrição</p><p className="text-sm font-medium">{detailItem.descricao}</p></div>
                 <div><p className="text-xs text-muted-foreground">Valor</p><p className="text-sm font-bold text-destructive">{formatCurrency(toNumber(detailItem.valor))}</p></div>
-                <div><p className="text-xs text-muted-foreground">Data</p><p className="text-sm font-medium">{formatDate(detailItem.data)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Data</p><p className="text-sm font-medium">{formatDateTime(detailItem.data)}</p></div>
                 <div><p className="text-xs text-muted-foreground">Categoria</p><p className="text-sm font-medium">{detailItem.categoria}</p></div>
                 <div><p className="text-xs text-muted-foreground">Pagamento</p><p className="text-sm font-medium">{detailItem.forma_pagamento}</p></div>
                 {detailItem.fornecedor && <div><p className="text-xs text-muted-foreground">Fornecedor</p><p className="text-sm font-medium">{detailItem.fornecedor}</p></div>}

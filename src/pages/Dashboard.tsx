@@ -162,10 +162,10 @@ const Dashboard = () => {
   const percMeta = metaValor > 0 ? (faturamentoTotal / metaValor) * 100 : 0;
   const percCustoFixo = metaValor > 0 ? (custosFixosTotal / metaValor) * 100 : 0;
 
-  const chartData = fechamentos.map((f) => ({
-    data: new Date(f.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-    total: toNumber(f.total),
-  }));
+  const chartData = fechamentos.map((f) => {
+    const [y, m, d] = (f.data as string).split("-");
+    return { data: `${d}/${m}`, total: toNumber(f.total) };
+  });
 
   const pagamentoData = [
     { name: "Cartão", value: fechamentos.reduce((s, f) => s + toNumber(f.cartao), 0) },
@@ -351,7 +351,7 @@ const Dashboard = () => {
                     <div>
                       <p className="text-sm font-medium">{enc.cliente_nome}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(enc.data_retirada + "T00:00:00").toLocaleDateString("pt-BR")}
+                        {(() => { const [y,m,d] = (enc.data_retirada as string).split("-"); return `${d}/${m}/${y}`; })()}
                         {enc.hora_retirada && ` às ${enc.hora_retirada.slice(0, 5)}`}
                       </p>
                     </div>

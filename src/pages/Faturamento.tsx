@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, formatDate, toNumber } from "@/lib/format";
+import { formatCurrency, formatDate, toNumber, todayDateString } from "@/lib/format";
 import { Plus } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ItemActions from "@/components/ItemActions";
@@ -20,7 +20,7 @@ const Faturamento = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<any | null>(null);
-  const [form, setForm] = useState({ data: "", cartao: "", pix: "", dinheiro: "", delivery: "", observacao: "" });
+  const [form, setForm] = useState({ data: todayDateString(), cartao: "", pix: "", dinheiro: "", delivery: "", observacao: "" });
 
   const fetchData = async () => {
     if (!empresaId) return;
@@ -66,7 +66,7 @@ const Faturamento = () => {
   };
 
   const resetForm = () => {
-    setForm({ data: "", cartao: "", pix: "", dinheiro: "", delivery: "", observacao: "" });
+    setForm({ data: todayDateString(), cartao: "", pix: "", dinheiro: "", delivery: "", observacao: "" });
     setEditingId(null);
   };
 
@@ -88,10 +88,10 @@ const Faturamento = () => {
     fetchData();
   };
 
-  const chartData = [...fechamentos].reverse().map((f) => ({
-    data: new Date(f.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-    total: toNumber(f.total),
-  }));
+  const chartData = [...fechamentos].reverse().map((f) => {
+    const [y, m, d] = (f.data as string).split("-");
+    return { data: `${d}/${m}`, total: toNumber(f.total) };
+  });
 
   return (
     <div className="space-y-6">
