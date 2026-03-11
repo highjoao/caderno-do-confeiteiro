@@ -80,7 +80,7 @@ const Insumos = () => {
   };
 
   const openEdit = (i: any) => {
-    setForm({ nome: i.nome, tipo: i.tipo, valor_pago: String(toNumber(i.valor_pago)), quantidade_comprada: String(toNumber(i.quantidade_comprada)), unidade: i.unidade });
+    setForm({ nome: i.nome, tipo: i.tipo, valor_pago: numberToMask(toNumber(i.valor_pago)), quantidade_comprada: String(toNumber(i.quantidade_comprada)), unidade: i.unidade });
     setEditingId(i.id);
     setDetailItem(null);
     setDialogOpen(true);
