@@ -106,8 +106,8 @@ const Encomendas = () => {
     setForm({
       cliente_nome: enc.cliente_nome, cliente_telefone: enc.cliente_telefone || "",
       data_retirada: enc.data_retirada, hora_retirada: enc.hora_retirada?.slice(0, 5) || "",
-      observacao: enc.observacao || "", valor_total: String(toNumber(enc.valor_total)),
-      valor_entrada: String(toNumber(enc.valor_entrada)), status: enc.status,
+      observacao: enc.observacao || "", valor_total: numberToMask(toNumber(enc.valor_total)),
+      valor_entrada: numberToMask(toNumber(enc.valor_entrada)), status: enc.status,
     });
     const { data } = await supabase.from("encomenda_produtos").select("*").eq("encomenda_id", enc.id);
     setProdutosEnc((data || []).map((p: any) => ({ produto_id: p.produto_id || "", nome_produto: p.nome_produto, quantidade: String(toNumber(p.quantidade)) })));
