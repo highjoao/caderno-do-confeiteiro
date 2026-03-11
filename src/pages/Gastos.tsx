@@ -123,8 +123,11 @@ const Gastos = () => {
   };
 
   const openEdit = (g: any) => {
+    // Convert ISO timestamp back to datetime-local format
+    const dt = g.data ? new Date(g.data) : new Date();
+    const dtLocal = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}T${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
     setForm({
-      data: g.data, fornecedor: g.fornecedor || "", descricao: g.descricao,
+      data: dtLocal, fornecedor: g.fornecedor || "", descricao: g.descricao,
       categoria: g.categoria, valor: String(toNumber(g.valor)),
       forma_pagamento: g.forma_pagamento, cartao_id: g.cartao_id || "", parcelas: String(g.parcelas || 1),
     });
