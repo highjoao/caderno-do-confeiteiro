@@ -110,7 +110,7 @@ const Gastos = () => {
   };
 
   const resetForm = () => {
-    setForm({ data: "", fornecedor: "", descricao: "", categoria: "", valor: "", forma_pagamento: "", cartao_id: "", parcelas: "1" });
+    setForm({ data: nowDateTimeString(), fornecedor: "", descricao: "", categoria: "", valor: "", forma_pagamento: "", cartao_id: "", parcelas: "1" });
     setFotoFile(null);
     setEditingId(null);
   };
