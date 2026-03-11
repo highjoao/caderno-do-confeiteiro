@@ -176,7 +176,7 @@ const Cartoes = () => {
     setEditingItemId(item.id);
     setItemForm({
       descricao: item.descricao,
-      valor: String(toNumber(item.valor)),
+      valor: numberToMask(toNumber(item.valor)),
       data_compra: item.data_compra || "",
       categoria: item.categoria || "",
       parcelas: String(item.total_parcelas || 1),
