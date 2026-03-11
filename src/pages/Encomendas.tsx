@@ -56,8 +56,8 @@ const Encomendas = () => {
       if (!error) foto_url = supabase.storage.from("encomendas_fotos").getPublicUrl(fileName).data.publicUrl;
     }
 
-    const valorTotal = toNumber(form.valor_total);
-    const valorEntrada = toNumber(form.valor_entrada);
+    const valorTotal = parseCurrency(form.valor_total);
+    const valorEntrada = parseCurrency(form.valor_entrada);
     const payload: any = {
       empresa_id: empresaId,
       cliente_nome: form.cliente_nome,
