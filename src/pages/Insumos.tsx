@@ -48,7 +48,7 @@ const Insumos = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!empresaId) return;
-    const valor = toNumber(form.valor_pago);
+    const valor = parseCurrency(form.valor_pago);
     const qtd = toNumber(form.quantidade_comprada);
     const { porGrama, porUnidade } = calcCustos(valor, qtd, form.unidade);
 
