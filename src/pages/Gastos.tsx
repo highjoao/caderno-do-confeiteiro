@@ -83,7 +83,7 @@ const Gastos = () => {
   const lancarNaFatura = async (cartaoId: string, gasto: any) => {
     const cartao = cartoes.find((c) => c.id === cartaoId);
     if (!cartao) return;
-    const dataCompra = new Date(gasto.data + "T00:00:00");
+    const dataCompra = new Date(gasto.data);
     const diaCompra = dataCompra.getDate();
     const parcelas = toNumber(gasto.parcelas) || 1;
     const valorParcela = toNumber(gasto.valor) / parcelas;
