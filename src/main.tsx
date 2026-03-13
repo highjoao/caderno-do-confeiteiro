@@ -32,8 +32,10 @@ if ("serviceWorker" in navigator) {
         if (!newWorker) return;
         newWorker.addEventListener("statechange", () => {
           if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-            // New version available — reload to apply
-            window.location.reload();
+            // New version available — reload only if not editing
+            if (!(window as any).__editingInProgress) {
+              window.location.reload();
+            }
           }
         });
       });
