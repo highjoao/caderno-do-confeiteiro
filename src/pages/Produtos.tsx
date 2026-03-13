@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDecimal, formatQuantidade, convertAndCalcCost, toNumber } from "@/lib/format";
-import { Plus, X } from "lucide-react";
+import { Plus, X, FileText, Package, Scale, Percent, Calculator } from "lucide-react";
 import ItemActions from "@/components/ItemActions";
 import { useAutoSaveDraft } from "@/hooks/use-auto-save-draft";
 import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
