@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatQuantidade, toNumber } from "@/lib/format";
-import { Plus, X } from "lucide-react";
+import { Plus, X, FileText, Package, Scale, Calculator } from "lucide-react";
 import ItemActions from "@/components/ItemActions";
 import { useAutoSaveDraft } from "@/hooks/use-auto-save-draft";
 import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
