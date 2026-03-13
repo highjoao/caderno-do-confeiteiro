@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,11 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDecimal, formatQuantidade, convertAndCalcCost, toNumber } from "@/lib/format";
 import { Plus, X } from "lucide-react";
 import ItemActions from "@/components/ItemActions";
+import { useAutoSaveDraft } from "@/hooks/use-auto-save-draft";
+import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 
 const UNIDADES_RECEITA = ["g", "Kg", "ml", "L", "Unidade"];
 
@@ -21,6 +24,13 @@ interface Toggles {
   taxaCartao: boolean;
   taxaDelivery: boolean;
 }
+
+type ProdutoDraft = {
+  form: { nome: string; tipo_venda: string; perc_custo_fixo: string; perc_lucro: string; perc_taxa_cartao: string; perc_taxa_delivery: string; rendimento_quantidade: string };
+  componentes: { tipo_componente: string; componente_id: string; quantidade: string; unidade_medida: string }[];
+  toggles: Toggles;
+  editingId: string | null;
+};
 
 const calcPrecoLoja = (custoBase: number, percCustoFixo: number, percLucro: number, percTaxaCartao: number, toggles: Toggles) => {
   let preco = custoBase;
@@ -53,6 +63,15 @@ const Produtos = () => {
     rendimento_quantidade: "1",
   });
   const [componentes, setComponentes] = useState<{ tipo_componente: string; componente_id: string; quantidade: string; unidade_medida: string }[]>([]);
+  const [showRecovery, setShowRecovery] = useState(false);
+
+  const draftData = useMemo<ProdutoDraft>(() => ({ form, componentes, toggles, editingId }), [form, componentes, toggles, editingId]);
+
+  const { status: draftStatus, loadDraft, hasDraft, clearDraft } = useAutoSaveDraft<ProdutoDraft>({
+    key: "produtos_editor",
+    data: draftData,
+    enabled: dialogOpen,
+  });
 
   const fetchData = async () => {
     if (!empresaId) return;
@@ -67,6 +86,30 @@ const Produtos = () => {
   };
 
   useEffect(() => { fetchData(); }, [empresaId]);
+
+  // Check for recovery draft on mount
+  useEffect(() => {
+    if (hasDraft()) {
+      setShowRecovery(true);
+    }
+  }, []);
+
+  const recoverDraft = () => {
+    const draft = loadDraft();
+    if (draft) {
+      setForm(draft.form);
+      setComponentes(draft.componentes);
+      setToggles(draft.toggles);
+      setEditingId(draft.editingId);
+      setDialogOpen(true);
+    }
+    setShowRecovery(false);
+  };
+
+  const discardDraft = () => {
+    clearDraft();
+    setShowRecovery(false);
+  };
 
   const getDefaultUnit = (tipo: string, id: string): string => {
     if (tipo === "Base") {
@@ -148,6 +191,7 @@ const Produtos = () => {
     }
 
     toast({ title: editingId ? "Produto atualizado!" : "Produto cadastrado!" });
+    clearDraft();
     setDialogOpen(false);
     resetForm();
     fetchData();
@@ -158,6 +202,14 @@ const Produtos = () => {
     setComponentes([]);
     setEditingId(null);
     setToggles({ custoFixo: true, lucro: true, taxaCartao: true, taxaDelivery: true });
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      clearDraft();
+      resetForm();
+    }
+    setDialogOpen(open);
   };
 
   const openEdit = async (p: any) => {
@@ -228,12 +280,33 @@ const Produtos = () => {
 
   return (
     <div className="space-y-6">
+      {/* Recovery Dialog */}
+      <AlertDialog open={showRecovery} onOpenChange={setShowRecovery}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Edição não finalizada</AlertDialogTitle>
+            <AlertDialogDescription>
+              Encontramos uma edição não finalizada de um produto. Deseja continuar de onde parou?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={discardDraft}>Descartar rascunho</AlertDialogCancel>
+            <AlertDialogAction onClick={recoverDraft}>Continuar edição</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-xl font-semibold">Ficha Técnica</h2>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+        <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Novo Produto</Button></DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>{editingId ? "Editar" : "Novo"} Produto</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <DialogTitle>{editingId ? "Editar" : "Novo"} Produto</DialogTitle>
+                <DraftStatusIndicator status={draftStatus} />
+              </div>
+            </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>

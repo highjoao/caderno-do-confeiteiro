@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,14 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatQuantidade, toNumber } from "@/lib/format";
 import { Plus, X } from "lucide-react";
 import ItemActions from "@/components/ItemActions";
+import { useAutoSaveDraft } from "@/hooks/use-auto-save-draft";
+import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 
 const UNIDADES_REND = ["Unidade", "g", "Kg", "ml", "L"];
 
 type InsumoBase = { insumo_id: string; quantidade_usada: string; unidade_receita: string };
+
+type BaseDraft = {
+  form: { nome: string; rendimento_quantidade: string; rendimento_unidade: string };
+  insumosBase: InsumoBase[];
+  editingId: string | null;
+};
 
 const getUnidadesCompativeis = (unidadeInsumo: string): string[] => {
   const u = unidadeInsumo.toLowerCase();
@@ -52,6 +61,15 @@ const Bases = () => {
   const [detailInsumos, setDetailInsumos] = useState<any[]>([]);
   const [form, setForm] = useState({ nome: "", rendimento_quantidade: "", rendimento_unidade: "g" });
   const [insumosBase, setInsumosBase] = useState<InsumoBase[]>([]);
+  const [showRecovery, setShowRecovery] = useState(false);
+
+  const draftData = useMemo<BaseDraft>(() => ({ form, insumosBase, editingId }), [form, insumosBase, editingId]);
+
+  const { status: draftStatus, loadDraft, hasDraft, clearDraft, saveDraft } = useAutoSaveDraft<BaseDraft>({
+    key: "bases_editor",
+    data: draftData,
+    enabled: dialogOpen,
+  });
 
   const fetchData = async () => {
     if (!empresaId) return;
@@ -62,6 +80,29 @@ const Bases = () => {
   };
 
   useEffect(() => { fetchData(); }, [empresaId]);
+
+  // Check for recovery draft on mount
+  useEffect(() => {
+    if (hasDraft()) {
+      setShowRecovery(true);
+    }
+  }, []);
+
+  const recoverDraft = () => {
+    const draft = loadDraft();
+    if (draft) {
+      setForm(draft.form);
+      setInsumosBase(draft.insumosBase);
+      setEditingId(draft.editingId);
+      setDialogOpen(true);
+    }
+    setShowRecovery(false);
+  };
+
+  const discardDraft = () => {
+    clearDraft();
+    setShowRecovery(false);
+  };
 
   const calcCustoTotal = () => {
     return insumosBase.reduce((sum, ib) => {
@@ -110,6 +151,7 @@ const Bases = () => {
     }
 
     toast({ title: editingId ? "Receita atualizada!" : "Receita cadastrada!" });
+    clearDraft();
     setDialogOpen(false);
     resetForm();
     fetchData();
@@ -150,17 +192,46 @@ const Bases = () => {
     setDetailItem(b);
   };
 
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      clearDraft();
+      resetForm();
+    }
+    setDialogOpen(open);
+  };
+
   const getInsumoNome = (id: string) => insumos.find((i) => i.id === id)?.nome || "—";
   const getInsumoUnidade = (id: string) => insumos.find((i) => i.id === id)?.unidade || "";
 
   return (
     <div className="space-y-6">
+      {/* Recovery Dialog */}
+      <AlertDialog open={showRecovery} onOpenChange={setShowRecovery}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Edição não finalizada</AlertDialogTitle>
+            <AlertDialogDescription>
+              Encontramos uma edição não finalizada de uma receita. Deseja continuar de onde parou?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={discardDraft}>Descartar rascunho</AlertDialogCancel>
+            <AlertDialogAction onClick={recoverDraft}>Continuar edição</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div />
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+        <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova Receita</Button></DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>{editingId ? "Editar" : "Nova"} Receita</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <DialogTitle>{editingId ? "Editar" : "Nova"} Receita</DialogTitle>
+                <DraftStatusIndicator status={draftStatus} />
+              </div>
+            </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2"><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required placeholder="Ex: Massa de Bolo" /></div>
 
