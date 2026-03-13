@@ -1,99 +1,64 @@
 
 
-# Plano: Refatorar Aba Faturas para Gerenciamento Completo de Cartao
+# Plano: Estabilidade e Auto-Save na Edição de Receitas/Fichas Técnicas
 
-## Contexto
+## Causa Raiz
 
-Hoje as faturas so existem como resultado automatico de gastos registrados na aba Gastos com forma "Cartao". O usuario nao consegue criar faturas manualmente, adicionar compras diretamente na fatura, nem reconstruir faturas antigas. Isso impede usuarios que ja tinham faturas antes de comecar a usar o app.
+O **Service Worker** em `src/main.tsx` (linhas 30-38) faz `window.location.reload()` automaticamente quando detecta uma nova versão. Durante edições longas, isso recarrega a página e perde todo o trabalho. Além disso, o evento `controllerchange` (linha 43) também dispara reload.
 
-A aba "Cartoes" (`Cartoes.tsx`) ja mostra cartoes + faturas + itens. Vamos transformar essa pagina no gerenciador completo de faturas.
+## Alterações
 
-## Alteracoes
+### 1. Controlar reload do Service Worker (`src/main.tsx`)
 
-### 1. Migracao SQL
+Criar flag global `window.__editingInProgress` que bloqueia o reload automático do SW. Quando a flag está ativa, o SW aguarda o usuário sair da edição antes de recarregar.
 
-Adicionar coluna `gasto_id` na tabela `itens_fatura` para vincular itens criados via Gastos (ja existe no schema). Adicionar coluna `data_compra` para registrar quando a compra foi feita:
+### 2. Hook `useAutoSaveDraft` (`src/hooks/use-auto-save-draft.ts`) — NOVO
 
-```sql
-ALTER TABLE public.itens_fatura ADD COLUMN IF NOT EXISTS data_compra date;
-```
+Hook reutilizável que:
+- Salva rascunho no `localStorage` a cada 20s via `setInterval`
+- Salva imediatamente quando dados mudam (debounced 2s)
+- Detecta rascunho existente ao montar
+- Oferece funções `clearDraft`, `hasDraft`, `loadDraft`
+- Gerencia indicador de status: "Salvando..." / "Rascunho salvo" / "Alterações não salvas"
 
-Criar trigger para sincronizar exclusao: quando um gasto com cartao e deletado, remover os itens_fatura correspondentes e recalcular valor_total da fatura.
+### 3. Aplicar auto-save em `Bases.tsx`
 
-```sql
-CREATE OR REPLACE FUNCTION public.sync_delete_gasto_itens_fatura()
-RETURNS trigger AS $$ ... $$
--- Deleta itens_fatura onde gasto_id = OLD.id
--- Recalcula valor_total das faturas afetadas
-```
+- Ao abrir dialog (criar/editar): ativar `window.__editingInProgress = true`
+- Ao fechar dialog: desativar flag e limpar rascunho
+- Ao montar: verificar se existe rascunho e perguntar se deseja recuperar
+- Mostrar indicador de status no header do dialog
+- `beforeunload` warning quando há alterações não salvas
 
-### 2. Refatorar `Cartoes.tsx` — Gerenciador Completo de Faturas
+### 4. Aplicar auto-save em `Produtos.tsx`
 
-A pagina atual ja tem: lista de cartoes, lista de faturas por cartao, itens expandiveis.
+Mesma lógica do Bases.tsx — proteger form + componentes.
 
-Adicionar:
+### 5. Componente `DraftStatusIndicator` (`src/components/DraftStatusIndicator.tsx`) — NOVO
 
-**a) Botao "Nova Fatura"** (quando um cartao esta selecionado)
-- Dialog com: mes de referencia (select de mes/ano), status inicial
-- Cria fatura vazia no banco
+Pequeno badge que mostra o status do rascunho no topo do dialog:
+- 🟢 "Rascunho salvo" (verde, some após 3s)
+- 🟡 "Salvando..." (amarelo)  
+- 🔴 "Alterações não salvas" (vermelho)
 
-**b) Botao "Adicionar Compra" dentro de cada fatura expandida**
-- Dialog com: descricao, valor, data da compra, categoria (opcional), parcelas
-- Se parcelas > 1: campo "parcela atual" (ex: 5 de 10)
-- Ao salvar:
-  - Cria item na fatura atual
-  - Se parcelado com parcela_atual informada: cria automaticamente itens nas faturas anteriores e futuras (criando as faturas se nao existirem)
-  - Recalcula valor_total de todas as faturas afetadas
+### 6. Dialog de recuperação
 
-**c) Edicao de itens da fatura**
-- Cada item tera botoes editar/excluir
-- Editar: altera descricao, valor, data
-- Excluir: remove item, recalcula valor_total da fatura
-- Se o item tem gasto_id vinculado, excluir tambem remove o gasto
+Ao detectar rascunho não finalizado, exibir `AlertDialog`:
+- "Encontramos uma edição não finalizada. Deseja continuar de onde parou?"
+- Botões: "Continuar edição" / "Descartar rascunho"
 
-**d) Edicao de fatura**
-- Alterar mes de referencia
-- Marcar como paga/aberta (ja existe via togglePaga)
+## Arquivos
 
-**e) Exclusao de fatura**
-- Remove fatura e todos seus itens (CASCADE ja configurado)
-
-### 3. Sincronizacao Gastos <-> Faturas
-
-**Ao deletar gasto na aba Gastos:**
-- Trigger no banco remove itens_fatura com gasto_id correspondente
-- Recalcula valor_total da fatura
-
-**Ao deletar item na fatura que tem gasto_id:**
-- Frontend deleta o gasto correspondente tambem
-
-**Compras criadas diretamente na fatura (sem gasto_id):**
-- NAO aparecem na aba Gastos
-- So impactam despesas quando fatura e marcada como paga (logica do Dashboard ja funciona assim)
-
-### 4. Parcelamento no Meio do Ciclo
-
-Quando usuario informa parcela_atual > 1:
-- Sistema calcula faturas anteriores baseado no dia_fechamento do cartao
-- Cria faturas passadas se nao existirem
-- Distribui parcelas automaticamente
-- Cada parcela mostra "X/Y" (ja existe no frontend)
-
-Exemplo: compra 10x, parcela atual 5, mes atual marco
-- Cria parcelas 1-4 em nov, dez, jan, fev
-- Cria parcelas 6-10 em abr, mai, jun, jul, ago
-
-## Arquivos Afetados
-
-| Arquivo | Alteracao |
+| Arquivo | Tipo |
 |---|---|
-| Migracao SQL | Coluna `data_compra`, trigger sync exclusao |
-| `src/pages/Cartoes.tsx` | Refatoracao completa: criar fatura, adicionar/editar/excluir itens, parcelamento meio ciclo |
-| `src/pages/Gastos.tsx` | Ajustar `handleDelete` para tambem limpar itens_fatura (trigger faz isso) |
+| `src/main.tsx` | Editar — condicionar reload do SW |
+| `src/hooks/use-auto-save-draft.ts` | Novo — hook de auto-save |
+| `src/components/DraftStatusIndicator.tsx` | Novo — indicador visual |
+| `src/pages/Bases.tsx` | Editar — integrar auto-save |
+| `src/pages/Produtos.tsx` | Editar — integrar auto-save |
 
-## Nao Muda
+## Não muda
 
-- Logica do Dashboard (despesas pagas = faturas pagas + gastos nao-cartao)
-- Aba Faturamento (fechamentos diarios, conceito diferente)
-- RLS policies (itens_fatura ja tem policies via join com faturas/cartoes)
+- Lógica de submit/banco de dados
+- Estrutura das tabelas
+- Outras páginas (Gastos, Faturamento, etc.)
 
