@@ -1,99 +1,103 @@
 
 
-# Plano: Refatorar Aba Faturas para Gerenciamento Completo de Cartao
+# Plano: Refatorar Design das Telas de Receitas e Ficha Técnica
 
-## Contexto
+## Resumo
 
-Hoje as faturas so existem como resultado automatico de gastos registrados na aba Gastos com forma "Cartao". O usuario nao consegue criar faturas manualmente, adicionar compras diretamente na fatura, nem reconstruir faturas antigas. Isso impede usuarios que ja tinham faturas antes de comecar a usar o app.
+Reorganizar visualmente os formulários de criação/edição em `Bases.tsx` e `Produtos.tsx` usando cards por seção, títulos destacados com ícones, cores sutis por tipo de componente e um resumo final premium. Sem mudar lógica, paleta ou identidade.
 
-A aba "Cartoes" (`Cartoes.tsx`) ja mostra cartoes + faturas + itens. Vamos transformar essa pagina no gerenciador completo de faturas.
+## Alterações
 
-## Alteracoes
+### 1. `Bases.tsx` — Dialog de criação/edição
 
-### 1. Migracao SQL
+Reorganizar o form em seções com cards:
 
-Adicionar coluna `gasto_id` na tabela `itens_fatura` para vincular itens criados via Gastos (ja existe no schema). Adicionar coluna `data_compra` para registrar quando a compra foi feita:
+**Seção 1 — Dados Principais** (card branco com borda sutil)
+- Ícone + título "Dados Principais" em `text-base font-semibold`
+- Campo Nome
 
-```sql
-ALTER TABLE public.itens_fatura ADD COLUMN IF NOT EXISTS data_compra date;
+**Seção 2 — Insumos** (card com fundo `bg-muted/20`)
+- Ícone + título "Insumos da Receita"
+- Botão "Adicionar" no header
+- Cada item com padding, borda e botão remover alinhado
+- Custo calculado inline por item (texto discreto)
+
+**Seção 3 — Rendimento** (card)
+- Ícone + título "Rendimento"
+- Grid 2 colunas: quantidade + unidade
+
+**Seção 4 — Resumo** (card com `bg-primary/5` e borda `border-primary/20`)
+- Ícone + título "Resumo"
+- Custo total em destaque
+- Custo por rendimento
+
+**Botão Salvar** com `mt-6` separado do resumo
+
+### 2. `Produtos.tsx` — Dialog de criação/edição
+
+Reorganizar em seções:
+
+**Seção 1 — Dados Principais**
+- Nome + Tipo de Venda em grid 2 colunas
+
+**Seção 2 — Componentes**
+- Cada componente com fundo por tipo:
+  - Insumo: `bg-white` / `bg-card` (neutro)
+  - Base/Receita: `bg-[#FFF3F8]` (rosa clarinho)
+  - Embalagem: `bg-[#F8F4FF]` (lilás suave)
+- Layout compacto: linha 1 (tipo + seletor + remover), linha 2 (qtd + unidade)
+
+**Seção 3 — Rendimento**
+- Card próprio com "Quantas unidades a receita rende?"
+
+**Seção 4 — Percentuais de Formação de Preço**
+- Título destacado com ícone
+- Grid 2x2 de mini-cards, cada um com:
+  - Toggle no topo
+  - Nome do percentual
+  - Input abaixo
+  - Fundo `bg-muted/30`, borda sutil, padding
+
+**Seção 5 — Resumo de Precificação** (visual premium)
+- Fundo `bg-primary/5` com borda `border-primary/20`
+- Custo de insumos
+- Divisória
+- Bloco "Preço Loja" com percentuais e preço em destaque
+- Divisória
+- Bloco "Preço Delivery" idem
+- Texto explicativo em `text-[10px]` bem discreto
+- Preços finais em `text-lg font-bold`
+
+**Botão Salvar** com `mt-6`
+
+### 3. `DialogContent` — Scroll
+
+Ambos os dialogs: adicionar `max-h-[85vh] overflow-y-auto` no form wrapper para receitas grandes não saírem da tela.
+
+### 4. Títulos de seção — Padrão visual
+
+Criar padrão consistente para títulos:
+```
+<div className="flex items-center gap-2 mb-3">
+  <Icon className="h-4 w-4 text-primary" />
+  <h3 className="text-sm font-semibold text-foreground">Título</h3>
+</div>
 ```
 
-Criar trigger para sincronizar exclusao: quando um gasto com cartao e deletado, remover os itens_fatura correspondentes e recalcular valor_total da fatura.
+Ícones: `FileText` (dados), `Package` (componentes), `Scale` (rendimento), `Percent` (percentuais), `Calculator` (resumo).
 
-```sql
-CREATE OR REPLACE FUNCTION public.sync_delete_gasto_itens_fatura()
-RETURNS trigger AS $$ ... $$
--- Deleta itens_fatura onde gasto_id = OLD.id
--- Recalcula valor_total das faturas afetadas
-```
+## Arquivos afetados
 
-### 2. Refatorar `Cartoes.tsx` — Gerenciador Completo de Faturas
-
-A pagina atual ja tem: lista de cartoes, lista de faturas por cartao, itens expandiveis.
-
-Adicionar:
-
-**a) Botao "Nova Fatura"** (quando um cartao esta selecionado)
-- Dialog com: mes de referencia (select de mes/ano), status inicial
-- Cria fatura vazia no banco
-
-**b) Botao "Adicionar Compra" dentro de cada fatura expandida**
-- Dialog com: descricao, valor, data da compra, categoria (opcional), parcelas
-- Se parcelas > 1: campo "parcela atual" (ex: 5 de 10)
-- Ao salvar:
-  - Cria item na fatura atual
-  - Se parcelado com parcela_atual informada: cria automaticamente itens nas faturas anteriores e futuras (criando as faturas se nao existirem)
-  - Recalcula valor_total de todas as faturas afetadas
-
-**c) Edicao de itens da fatura**
-- Cada item tera botoes editar/excluir
-- Editar: altera descricao, valor, data
-- Excluir: remove item, recalcula valor_total da fatura
-- Se o item tem gasto_id vinculado, excluir tambem remove o gasto
-
-**d) Edicao de fatura**
-- Alterar mes de referencia
-- Marcar como paga/aberta (ja existe via togglePaga)
-
-**e) Exclusao de fatura**
-- Remove fatura e todos seus itens (CASCADE ja configurado)
-
-### 3. Sincronizacao Gastos <-> Faturas
-
-**Ao deletar gasto na aba Gastos:**
-- Trigger no banco remove itens_fatura com gasto_id correspondente
-- Recalcula valor_total da fatura
-
-**Ao deletar item na fatura que tem gasto_id:**
-- Frontend deleta o gasto correspondente tambem
-
-**Compras criadas diretamente na fatura (sem gasto_id):**
-- NAO aparecem na aba Gastos
-- So impactam despesas quando fatura e marcada como paga (logica do Dashboard ja funciona assim)
-
-### 4. Parcelamento no Meio do Ciclo
-
-Quando usuario informa parcela_atual > 1:
-- Sistema calcula faturas anteriores baseado no dia_fechamento do cartao
-- Cria faturas passadas se nao existirem
-- Distribui parcelas automaticamente
-- Cada parcela mostra "X/Y" (ja existe no frontend)
-
-Exemplo: compra 10x, parcela atual 5, mes atual marco
-- Cria parcelas 1-4 em nov, dez, jan, fev
-- Cria parcelas 6-10 em abr, mai, jun, jul, ago
-
-## Arquivos Afetados
-
-| Arquivo | Alteracao |
+| Arquivo | Alteração |
 |---|---|
-| Migracao SQL | Coluna `data_compra`, trigger sync exclusao |
-| `src/pages/Cartoes.tsx` | Refatoracao completa: criar fatura, adicionar/editar/excluir itens, parcelamento meio ciclo |
-| `src/pages/Gastos.tsx` | Ajustar `handleDelete` para tambem limpar itens_fatura (trigger faz isso) |
+| `src/pages/Bases.tsx` | Refatorar dialog form com seções em cards |
+| `src/pages/Produtos.tsx` | Refatorar dialog form com seções em cards, cores por tipo, mini-cards percentuais, resumo premium |
 
-## Nao Muda
+## Não muda
 
-- Logica do Dashboard (despesas pagas = faturas pagas + gastos nao-cartao)
-- Aba Faturamento (fechamentos diarios, conceito diferente)
-- RLS policies (itens_fatura ja tem policies via join com faturas/cartoes)
+- Lógica de cálculo
+- Lógica de submit/banco
+- Paleta de cores (rosa, branco, neutros)
+- Auto-save / draft recovery
+- Listagem e detalhes
 
