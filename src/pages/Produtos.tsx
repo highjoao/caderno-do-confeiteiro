@@ -300,178 +300,209 @@ const Produtos = () => {
         <h2 className="text-xl font-semibold">Ficha Técnica</h2>
         <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Novo Produto</Button></DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <DialogTitle>{editingId ? "Editar" : "Novo"} Produto</DialogTitle>
                 <DraftStatusIndicator status={draftStatus} />
               </div>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
-                <div className="space-y-2">
-                  <Label>Tipo de Venda</Label>
-                  <Select value={form.tipo_venda} onValueChange={(v) => setForm({ ...form, tipo_venda: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Unidade">Por Unidade</SelectItem>
-                      <SelectItem value="Quilo">Por Quilo</SelectItem>
-                    </SelectContent>
-                  </Select>
+            <form onSubmit={handleSubmit} className="max-h-[75vh] overflow-y-auto pr-1 space-y-5">
+              {/* Seção: Dados Principais */}
+              <div className="rounded-lg border border-border/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Dados Principais</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nome</Label>
+                    <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Venda</Label>
+                    <Select value={form.tipo_venda} onValueChange={(v) => setForm({ ...form, tipo_venda: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Unidade">Por Unidade</SelectItem>
+                        <SelectItem value="Quilo">Por Quilo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label>Componentes</Label>
+              {/* Seção: Componentes */}
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Componentes</h3>
+                  </div>
                   <Button type="button" variant="outline" size="sm" onClick={() => setComponentes([...componentes, { tipo_componente: "Insumo", componente_id: "", quantidade: "", unidade_medida: "g" }])}>
                     <Plus className="h-3 w-3 mr-1" />Adicionar
                   </Button>
                 </div>
-                <div className="space-y-3">
-                  {componentes.map((comp, idx) => (
-                    <div key={idx} className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <div className="flex gap-2 items-end">
-                        <Select value={comp.tipo_componente} onValueChange={(v) => { const n = [...componentes]; n[idx].tipo_componente = v; n[idx].componente_id = ""; setComponentes(n); }}>
-                          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Base">Base</SelectItem>
-                            <SelectItem value="Insumo">Insumo</SelectItem>
-                            <SelectItem value="Embalagem">Embalagem</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <div className="flex-1 min-w-0">
-                          <Select value={comp.componente_id} onValueChange={(v) => {
-                            const n = [...componentes];
-                            n[idx].componente_id = v;
-                            n[idx].unidade_medida = getDefaultUnit(n[idx].tipo_componente, v);
-                            setComponentes(n);
-                          }}>
-                            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                            <SelectContent>{getComponenteOptions(comp.tipo_componente).map((o) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
+                <div className="space-y-2">
+                  {componentes.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-3">Nenhum componente adicionado</p>
+                  )}
+                  {componentes.map((comp, idx) => {
+                    const bgByType = comp.tipo_componente === "Base"
+                      ? "bg-[hsl(340,60%,97%)]"
+                      : comp.tipo_componente === "Embalagem"
+                        ? "bg-[hsl(270,40%,97%)]"
+                        : "bg-card";
+                    return (
+                      <div key={idx} className={`rounded-md border border-border/40 p-3 space-y-2 ${bgByType}`}>
+                        <div className="flex gap-2 items-center">
+                          <Select value={comp.tipo_componente} onValueChange={(v) => { const n = [...componentes]; n[idx].tipo_componente = v; n[idx].componente_id = ""; setComponentes(n); }}>
+                            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Base">Receita</SelectItem>
+                              <SelectItem value="Insumo">Insumo</SelectItem>
+                              <SelectItem value="Embalagem">Embalagem</SelectItem>
+                            </SelectContent>
                           </Select>
+                          <div className="flex-1 min-w-0">
+                            <Select value={comp.componente_id} onValueChange={(v) => {
+                              const n = [...componentes];
+                              n[idx].componente_id = v;
+                              n[idx].unidade_medida = getDefaultUnit(n[idx].tipo_componente, v);
+                              setComponentes(n);
+                            }}>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>{getComponenteOptions(comp.tipo_componente).map((o) => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => setComponentes(componentes.filter((_, i) => i !== idx))}>
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <Button type="button" variant="ghost" size="icon" onClick={() => setComponentes(componentes.filter((_, i) => i !== idx))}>
-                          <X className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1 space-y-1">
+                            <Label className="text-xs">Quantidade</Label>
+                            <Input type="number" step="0.0001" placeholder="0" value={comp.quantidade}
+                              onChange={(e) => { const n = [...componentes]; n[idx].quantidade = e.target.value; setComponentes(n); }} />
+                          </div>
+                          <div className="w-24 space-y-1">
+                            <Label className="text-xs">Unidade</Label>
+                            <Select value={comp.unidade_medida} onValueChange={(v) => { const n = [...componentes]; n[idx].unidade_medida = v; setComponentes(n); }}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>{UNIDADES_RECEITA.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex gap-2 items-end">
-                        <div className="flex-1 space-y-1">
-                          <Label className="text-xs">Quantidade</Label>
-                          <Input type="number" step="0.0001" placeholder="0" value={comp.quantidade}
-                            onChange={(e) => { const n = [...componentes]; n[idx].quantidade = e.target.value; setComponentes(n); }} />
-                        </div>
-                        <div className="w-24 space-y-1">
-                          <Label className="text-xs">Unidade</Label>
-                          <Select value={comp.unidade_medida} onValueChange={(v) => { const n = [...componentes]; n[idx].unidade_medida = v; setComponentes(n); }}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>{UNIDADES_RECEITA.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Quantas unidades a receita rende?</Label>
-                <Input type="number" step="1" min="1" placeholder="1" value={form.rendimento_quantidade} onChange={(e) => setForm({ ...form, rendimento_quantidade: e.target.value })} />
+              {/* Seção: Rendimento */}
+              <div className="rounded-lg border border-border/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Scale className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Rendimento</h3>
+                </div>
+                <div className="space-y-2">
+                  <Label>Quantas unidades a receita rende?</Label>
+                  <Input type="number" step="1" min="1" placeholder="1" value={form.rendimento_quantidade} onChange={(e) => setForm({ ...form, rendimento_quantidade: e.target.value })} />
+                </div>
               </div>
 
-              <div className="space-y-3">
-                <Label>Percentuais de Formação de Preço</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+              {/* Seção: Percentuais */}
+              <div className="rounded-lg border border-border/60 p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Percent className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Formação de Preço</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-md border border-border/40 bg-muted/30 p-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <Switch checked={toggles.custoFixo} onCheckedChange={(v) => setToggles({ ...toggles, custoFixo: v })} />
-                      <Label className="text-sm">% Custo Fixo</Label>
+                      <Label className="text-xs font-medium">% Custo Fixo</Label>
                     </div>
                     <Input type="number" step="0.1" placeholder="0" value={form.perc_custo_fixo} onChange={(e) => setForm({ ...form, perc_custo_fixo: e.target.value })} disabled={!toggles.custoFixo} />
                   </div>
-                  <div className="space-y-2">
+                  <div className="rounded-md border border-border/40 bg-muted/30 p-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <Switch checked={toggles.lucro} onCheckedChange={(v) => setToggles({ ...toggles, lucro: v })} />
-                      <Label className="text-sm">% Lucro</Label>
+                      <Label className="text-xs font-medium">% Lucro</Label>
                     </div>
                     <Input type="number" step="0.1" placeholder="0" value={form.perc_lucro} onChange={(e) => setForm({ ...form, perc_lucro: e.target.value })} disabled={!toggles.lucro} />
                   </div>
-                  <div className="space-y-2">
+                  <div className="rounded-md border border-border/40 bg-muted/30 p-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <Switch checked={toggles.taxaCartao} onCheckedChange={(v) => setToggles({ ...toggles, taxaCartao: v })} />
-                      <Label className="text-sm">% Taxa Cartão</Label>
+                      <Label className="text-xs font-medium">% Taxa Cartão</Label>
                     </div>
                     <Input type="number" step="0.1" placeholder="0" value={form.perc_taxa_cartao} onChange={(e) => setForm({ ...form, perc_taxa_cartao: e.target.value })} disabled={!toggles.taxaCartao} />
                   </div>
-                  <div className="space-y-2">
+                  <div className="rounded-md border border-border/40 bg-muted/30 p-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <Switch checked={toggles.taxaDelivery} onCheckedChange={(v) => setToggles({ ...toggles, taxaDelivery: v })} />
-                      <Label className="text-sm">% Taxa Delivery</Label>
+                      <Label className="text-xs font-medium">% Taxa Delivery</Label>
                     </div>
                     <Input type="number" step="0.1" placeholder="0" value={form.perc_taxa_delivery} onChange={(e) => setForm({ ...form, perc_taxa_delivery: e.target.value })} disabled={!toggles.taxaDelivery} />
                   </div>
                 </div>
               </div>
 
-              {/* Resumo de Preço */}
-              <div className="p-4 rounded-lg bg-primary/10 space-y-3">
-                <div className="flex justify-between text-sm font-medium">
-                  <span>Custo de Insumos:</span>
-                  <span>{formatCurrency(custoInsumos)}</span>
+              {/* Seção: Resumo de Precificação */}
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Calculator className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Resumo de Precificação</h3>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Custo de Insumos</span>
+                  <span className="font-medium">{formatCurrency(custoInsumos)}</span>
                 </div>
                 {rendimento > 1 && (
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>÷ Rendimento ({rendimento} un):</span>
+                    <span>÷ Rendimento ({rendimento} un)</span>
                     <span>{formatCurrency(custoBase)}/{unitLabel}</span>
                   </div>
                 )}
 
-                {/* Formação Preço Loja */}
-                <div className="border-t border-primary/20 pt-2 space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Formação Preço Loja</p>
+                {/* Preço Loja */}
+                <div className="border-t border-primary/15 pt-3 space-y-1">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Preço Loja</p>
                   {toggles.custoFixo && percCustoFixo > 0 && (
-                    <div className="flex justify-between text-sm"><span>Custo fixo: {formatDecimal(percCustoFixo, 1)}%</span></div>
+                    <div className="flex justify-between text-xs text-muted-foreground"><span>Custo fixo: {formatDecimal(percCustoFixo, 1)}%</span></div>
                   )}
                   {toggles.lucro && percLucro > 0 && (
-                    <div className="flex justify-between text-sm"><span>Lucro: {formatDecimal(percLucro, 1)}%</span></div>
+                    <div className="flex justify-between text-xs text-muted-foreground"><span>Lucro: {formatDecimal(percLucro, 1)}%</span></div>
                   )}
                   {toggles.taxaCartao && percTaxaCartao > 0 && (
-                    <div className="flex justify-between text-sm"><span>Taxa cartão: {formatDecimal(percTaxaCartao, 1)}%</span></div>
+                    <div className="flex justify-between text-xs text-muted-foreground"><span>Taxa cartão: {formatDecimal(percTaxaCartao, 1)}%</span></div>
                   )}
-                  <div className="flex justify-between text-base font-bold text-primary">
-                    <span>Preço Ideal Loja:</span>
-                    <span>{formatCurrency(precoLoja)}/{unitLabel}</span>
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="text-sm font-medium">Preço Ideal Loja</span>
+                    <span className="text-lg font-bold text-primary">{formatCurrency(precoLoja)}/{unitLabel}</span>
                   </div>
                 </div>
 
-                {/* Formação Preço Delivery */}
-                <div className="border-t border-primary/20 pt-2 space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Formação Preço Delivery</p>
-                  {toggles.custoFixo && percCustoFixo > 0 && (
-                    <div className="flex justify-between text-sm"><span>Custo fixo: {formatDecimal(percCustoFixo, 1)}%</span></div>
-                  )}
-                  {toggles.lucro && percLucro > 0 && (
-                    <div className="flex justify-between text-sm"><span>Lucro: {formatDecimal(percLucro, 1)}%</span></div>
-                  )}
-                  {toggles.taxaCartao && percTaxaCartao > 0 && (
-                    <div className="flex justify-between text-sm"><span>Taxa cartão: {formatDecimal(percTaxaCartao, 1)}%</span></div>
-                  )}
+                {/* Preço Delivery */}
+                <div className="border-t border-primary/15 pt-3 space-y-1">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Preço Delivery</p>
                   {toggles.taxaDelivery && percTaxaDelivery > 0 && (
-                    <div className="flex justify-between text-sm"><span>Taxa delivery: {formatDecimal(percTaxaDelivery, 1)}%</span></div>
+                    <div className="flex justify-between text-xs text-muted-foreground"><span>Taxa delivery: {formatDecimal(percTaxaDelivery, 1)}%</span></div>
                   )}
-                  <div className="flex justify-between text-base font-bold text-primary">
-                    <span>Preço Ideal Delivery:</span>
-                    <span>{formatCurrency(precoDelivery)}/{unitLabel}</span>
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="text-sm font-medium">Preço Ideal Delivery</span>
+                    <span className="text-lg font-bold text-primary">{formatCurrency(precoDelivery)}/{unitLabel}</span>
                   </div>
                 </div>
 
-                <p className="text-xs text-muted-foreground italic">
-                  O cálculo é feito em cascata, incorporando cada percentual em sequência sobre o valor já ajustado.
+                <p className="text-[10px] text-muted-foreground/70 italic pt-1">
+                  Cálculo em cascata: cada percentual é aplicado em sequência sobre o valor já ajustado.
                 </p>
               </div>
 
-              <Button type="submit" className="w-full">{editingId ? "Atualizar" : "Salvar"}</Button>
+              <Button type="submit" className="w-full mt-2">{editingId ? "Atualizar" : "Salvar"}</Button>
             </form>
           </DialogContent>
         </Dialog>
