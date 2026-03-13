@@ -41,9 +41,11 @@ if ("serviceWorker" in navigator) {
       });
     }
 
-    // If the controller changes (another tab activated a new SW), reload
+    // If the controller changes (another tab activated a new SW), reload only if not editing
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      window.location.reload();
+      if (!(window as any).__editingInProgress) {
+        window.location.reload();
+      }
     });
   });
 }
