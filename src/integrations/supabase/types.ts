@@ -585,6 +585,7 @@ export type Database = {
           email: string
           empresa_id: string
           id: string
+          is_paid: boolean
           nome: string
           user_id: string
         }
@@ -593,6 +594,7 @@ export type Database = {
           email: string
           empresa_id: string
           id?: string
+          is_paid?: boolean
           nome: string
           user_id: string
         }
@@ -601,6 +603,7 @@ export type Database = {
           email?: string
           empresa_id?: string
           id?: string
+          is_paid?: boolean
           nome?: string
           user_id?: string
         }
