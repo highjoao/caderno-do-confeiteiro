@@ -17,13 +17,18 @@ import Bases from "./pages/Bases";
 import Produtos from "./pages/Produtos";
 import Encomendas from "./pages/Encomendas";
 import NotFound from "./pages/NotFound";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentCanceled from "./pages/PaymentCanceled";
+import PaymentRequired from "./pages/PaymentRequired";
 
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, perfil } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!user) return <Navigate to="/auth" replace />;
+  // If user exists but hasn't paid, redirect to payment
+  if (perfil && !perfil.is_paid) return <Navigate to="/payment-required" replace />;
   return <AppLayout>{children}</AppLayout>;
 };
 
@@ -38,6 +43,9 @@ const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
     <Route path="/reset-password" element={<ResetPassword />} />
+    <Route path="/payment-success" element={<PaymentSuccess />} />
+    <Route path="/payment-canceled" element={<PaymentCanceled />} />
+    <Route path="/payment-required" element={<PaymentRequired />} />
     <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
     <Route path="/faturamento" element={<ProtectedRoute><Faturamento /></ProtectedRoute>} />
     <Route path="/gastos" element={<ProtectedRoute><Gastos /></ProtectedRoute>} />

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -7,8 +7,9 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   empresaId: string | null;
-  perfil: { id: string; nome: string; email: string } | null;
+  perfil: { id: string; nome: string; email: string; is_paid: boolean } | null;
   signOut: () => Promise<void>;
+  refreshPerfil: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   empresaId: null,
   perfil: null,
   signOut: async () => {},
+  refreshPerfil: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -27,19 +29,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
-  const [perfil, setPerfil] = useState<{ id: string; nome: string; email: string } | null>(null);
+  const [perfil, setPerfil] = useState<{ id: string; nome: string; email: string; is_paid: boolean } | null>(null);
 
-  const fetchPerfil = async (userId: string) => {
+  const fetchPerfil = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("perfis")
-      .select("id, nome, email, empresa_id")
+      .select("id, nome, email, empresa_id, is_paid")
       .eq("user_id", userId)
       .single();
     if (data) {
       setEmpresaId(data.empresa_id);
-      setPerfil({ id: data.id, nome: data.nome, email: data.email });
+      setPerfil({ id: data.id, nome: data.nome, email: data.email, is_paid: data.is_paid });
     }
-  };
+  }, []);
+
+  const refreshPerfil = useCallback(async () => {
+    if (user) {
+      await fetchPerfil(user.id);
+    }
+  }, [user, fetchPerfil]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -73,7 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, empresaId, perfil, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, empresaId, perfil, signOut, refreshPerfil }}>
       {children}
     </AuthContext.Provider>
   );

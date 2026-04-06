@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-
+import { Loader2 } from "lucide-react";
 
 type AuthMode = "login" | "cadastro" | "recuperar";
 
@@ -17,25 +17,45 @@ const Auth = () => {
   const [nome, setNome] = useState("");
   const [nomeEmpresa, setNomeEmpresa] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
-    } else {
-      navigate("/");
+      setLoading(false);
+      return;
     }
+
+    // Check if user has paid
+    if (data.user) {
+      const { data: perfil } = await supabase
+        .from("perfis")
+        .select("is_paid")
+        .eq("user_id", data.user.id)
+        .single();
+
+      if (perfil && !perfil.is_paid) {
+        navigate("/payment-required");
+        setLoading(false);
+        return;
+      }
+    }
+
+    navigate("/");
     setLoading(false);
   };
 
   const handleCadastro = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+
+    // 1. Create account
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -43,13 +63,35 @@ const Auth = () => {
         emailRedirectTo: window.location.origin,
       },
     });
+
     if (error) {
       toast({ title: "Erro no cadastro", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Cadastro realizado!", description: "Verifique seu e-mail para confirmar a conta." });
+      setLoading(false);
+      return;
+    }
+
+    // 2. Redirect to Stripe checkout
+    setCheckoutLoading(true);
+    try {
+      const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke(
+        "create-checkout-session"
+      );
+      if (checkoutError) throw checkoutError;
+      if (checkoutData?.url) {
+        window.location.href = checkoutData.url;
+        return;
+      }
+      throw new Error("URL de checkout não recebida");
+    } catch (err: any) {
+      toast({
+        title: "Conta criada, mas erro ao iniciar pagamento",
+        description: "Faça login para tentar o pagamento novamente.",
+        variant: "destructive",
+      });
+      setCheckoutLoading(false);
+      setLoading(false);
       setMode("login");
     }
-    setLoading(false);
   };
 
   const handleRecuperar = async (e: React.FormEvent) => {
@@ -66,6 +108,15 @@ const Auth = () => {
     setLoading(false);
   };
 
+  if (checkoutLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-muted-foreground text-lg">Redirecionando para o pagamento...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -80,7 +131,7 @@ const Auth = () => {
           </CardTitle>
           <CardDescription>
             {mode === "login" && "Acesse seu painel de gestão"}
-            {mode === "cadastro" && "Cadastre sua confeitaria"}
+            {mode === "cadastro" && "Cadastre sua confeitaria — R$ 29,99 (pagamento único)"}
             {mode === "recuperar" && "Enviaremos um link para redefinir sua senha"}
           </CardDescription>
         </CardHeader>
@@ -115,7 +166,7 @@ const Auth = () => {
 
           <CardFooter className="flex flex-col gap-3">
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Aguarde..." : mode === "login" ? "Entrar" : mode === "cadastro" ? "Cadastrar" : "Enviar Link"}
+              {loading ? "Aguarde..." : mode === "login" ? "Entrar" : mode === "cadastro" ? "Criar Conta e Pagar" : "Enviar Link"}
             </Button>
 
             <div className="flex flex-col items-center gap-1 text-sm">
